@@ -9,8 +9,8 @@
 // ========================================
 const AIRTABLE_CONFIG = {
     // PASTE YOUR CREDENTIALS HERE
-    TOKEN: 'PASTE_YOUR_PERSONAL_ACCESS_TOKEN_HERE',
-    BASE_ID: 'PASTE_YOUR_BASE_ID_HERE',
+    TOKEN: 'pattapHYeSpv9nVOP.00ac8088c4a11046dd4017aca7f81a662af33ff059b964bdb504eb31ececbef2',
+    BASE_ID: 'appTCS4jZ78mZQDHy',
     
     // Table names - EXACT match with Airtable
     TABLES: {
