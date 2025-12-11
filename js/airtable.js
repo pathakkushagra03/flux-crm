@@ -235,7 +235,7 @@ const AirtableAPI = {
         const result = await this.fetchFromAirtable(
             AIRTABLE_CONFIG.TABLES.USERS,
             filter,
-            ['UserName', 'Email', 'Phone', 'Role', 'Companies'],
+            ['UserName', 'Email', 'Phone', 'Role', 'Companies', 'Password'],
             pageSize,
             offset
         );
@@ -247,7 +247,8 @@ const AirtableAPI = {
                 email: record.Email || '',
                 phone: record.Phone || '',
                 role: record.Role || 'User',
-                companies: record.Companies || []
+                companies: record.Companies || [],
+                password: record.Password || ''
             })),
             offset: result.offset
         };
@@ -259,7 +260,8 @@ const AirtableAPI = {
             Email: data.email || '',
             Phone: data.phone || '',
             Role: data.role || 'User',
-            Companies: data.companies ? [data.companies] : []
+            Companies: data.companies ? [data.companies] : [],
+            Password: data.password || ''
         };
         
         const record = await this.createRecord(AIRTABLE_CONFIG.TABLES.USERS, fields);
@@ -270,7 +272,8 @@ const AirtableAPI = {
             email: record.Email,
             phone: record.Phone,
             role: record.Role,
-            companies: record.Companies || []
+            companies: record.Companies || [],
+            password: record.Password
         };
     },
 
@@ -281,6 +284,7 @@ const AirtableAPI = {
         if (data.phone !== undefined) fields.Phone = data.phone;
         if (data.role) fields.Role = data.role;
         if (data.companies) fields.Companies = [data.companies];
+        if (data.password !== undefined) fields.Password = data.password;
         
         const record = await this.updateRecord(AIRTABLE_CONFIG.TABLES.USERS, id, fields);
         
@@ -290,12 +294,26 @@ const AirtableAPI = {
             email: record.Email,
             phone: record.Phone,
             role: record.Role,
-            companies: record.Companies || []
+            companies: record.Companies || [],
+            password: record.Password
         };
     },
 
     async deleteUser(id) {
         return await this.deleteRecord(AIRTABLE_CONFIG.TABLES.USERS, id);
+    },
+
+    async authenticateUser(email, password) {
+        try {
+            const result = await this.getUsers();
+            const user = result.records.find(u => 
+                u.email.toLowerCase() === email.toLowerCase() && u.password === password
+            );
+            return user || null;
+        } catch (error) {
+            console.error('Authentication error:', error);
+            return null;
+        }
     },
 
     // ========================================
@@ -574,6 +592,85 @@ const AirtableAPI = {
     },
 
     // ========================================
+    // CLIENT TO-DO LIST
+    // ========================================
+    
+    async getClientTodos(companyId = null, pageSize = 100, offset = null) {
+        const filter = companyId ? `FIND('${companyId}', ARRAYJOIN({Company}))` : '';
+        
+        const result = await this.fetchFromAirtable(
+            AIRTABLE_CONFIG.TABLES.CLIENT_TODO,
+            filter,
+            ['TaskName', 'DueDate', 'Priority', 'Status', 'AssignedUser', 'Company', 'Client'],
+            pageSize,
+            offset
+        );
+        
+        return {
+            records: result.records.map(record => ({
+                id: record.id,
+                name: record.TaskName || 'Unnamed Task',
+                dueDate: record.DueDate || '',
+                priority: record.Priority || 'Medium',
+                status: record.Status || 'Pending',
+                assignedUser: record.AssignedUser ? record.AssignedUser[0] : null,
+                company: record.Company ? record.Company[0] : null,
+                client: record.Client ? record.Client[0] : null
+            })),
+            offset: result.offset
+        };
+    },
+
+    async addClientTodo(data) {
+        const fields = {
+            TaskName: data.name,
+            DueDate: data.dueDate || '',
+            Priority: data.priority || 'Medium',
+            Status: data.status || 'Pending',
+            AssignedUser: data.assignedUser ? [data.assignedUser] : [],
+            Company: data.company ? [data.company] : [],
+            Client: data.client ? [data.client] : []
+        };
+        
+        const record = await this.createRecord(AIRTABLE_CONFIG.TABLES.CLIENT_TODO, fields);
+        
+        return {
+            id: record.id,
+            name: record.TaskName,
+            dueDate: record.DueDate,
+            priority: record.Priority,
+            status: record.Status,
+            assignedUser: record.AssignedUser ? record.AssignedUser[0] : null,
+            company: record.Company ? record.Company[0] : null,
+            client: record.Client ? record.Client[0] : null
+        };
+    },
+
+    async updateClientTodo(id, data) {
+        const fields = {};
+        if (data.name) fields.TaskName = data.name;
+        if (data.dueDate !== undefined) fields.DueDate = data.dueDate;
+        if (data.priority) fields.Priority = data.priority;
+        if (data.status) fields.Status = data.status;
+        if (data.assignedUser !== undefined) fields.AssignedUser = data.assignedUser ? [data.assignedUser] : [];
+        if (data.company !== undefined) fields.Company = data.company ? [data.company] : [];
+        if (data.client !== undefined) fields.Client = data.client ? [data.client] : [];
+        
+        const record = await this.updateRecord(AIRTABLE_CONFIG.TABLES.CLIENT_TODO, id, fields);
+        
+        return {
+            id: record.id,
+            name: record.TaskName,
+            status: record.Status,
+            priority: record.Priority
+        };
+    },
+
+    async deleteClientTodo(id) {
+        return await this.deleteRecord(AIRTABLE_CONFIG.TABLES.CLIENT_TODO, id);
+    },
+
+    // ========================================
     // USER-SPECIFIC QUERIES
     // ========================================
     
@@ -648,6 +745,31 @@ const AirtableAPI = {
                 status: record.Status || 'Pending',
                 assignedUser: record.AssignedUser ? record.AssignedUser[0] : null,
                 company: record.Company ? record.Company[0] : null
+            })),
+            offset: result.offset
+        };
+    },
+
+    async getUserClientTodos(userId, pageSize = 100, offset = null) {
+        const filter = `FIND('${userId}', ARRAYJOIN({AssignedUser}))`;
+        const result = await this.fetchFromAirtable(
+            AIRTABLE_CONFIG.TABLES.CLIENT_TODO,
+            filter,
+            ['TaskName', 'DueDate', 'Priority', 'Status', 'AssignedUser', 'Company', 'Client'],
+            pageSize,
+            offset
+        );
+        
+        return {
+            records: result.records.map(record => ({
+                id: record.id,
+                name: record.TaskName || 'Unnamed Task',
+                dueDate: record.DueDate || '',
+                priority: record.Priority || 'Medium',
+                status: record.Status || 'Pending',
+                assignedUser: record.AssignedUser ? record.AssignedUser[0] : null,
+                company: record.Company ? record.Company[0] : null,
+                client: record.Client ? record.Client[0] : null
             })),
             offset: result.offset
         };

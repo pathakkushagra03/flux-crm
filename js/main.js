@@ -121,12 +121,14 @@ function goForward() {
 // ========================================
 async function loadCompanies() {
     AppState.loading = true;
-    render();
+    if (AppState.currentView !== 'login') {
+        render();
+    }
     
     try {
         if (typeof AirtableAPI !== 'undefined' && AirtableAPI.isConfigured()) {
             const result = await AirtableAPI.getCompanies();
-            AppState.data.companies = result.records;
+            AppState.data.companies = result.records || [];
         } else {
             console.warn('Airtable not configured, using demo data');
             generateDemoData();
@@ -137,7 +139,9 @@ async function loadCompanies() {
         generateDemoData();
     } finally {
         AppState.loading = false;
-        render();
+        if (AppState.currentView !== 'login') {
+            render();
+        }
     }
 }
 
