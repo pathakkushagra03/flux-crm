@@ -89,7 +89,6 @@ const AuthManager = {
                     id: 'demo-user',
                     name: 'Demo User',
                     email: admin@demo.com,
-                    password: 'demo123',
                     role: 'Admin',
                     companies: []
                 };
