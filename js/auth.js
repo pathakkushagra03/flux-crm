@@ -85,10 +85,10 @@ const AuthManager = {
                 }
             } else {
                 // Demo mode - accept any credentials
-                user = {
+               user = {
                     id: 'demo-user',
                     name: 'Demo User',
-                    email: admin@demo.com,
+                    email: 'admin@demo.com',
                     role: 'Admin',
                     companies: []
                 };

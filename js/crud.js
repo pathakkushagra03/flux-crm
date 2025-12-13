@@ -278,13 +278,12 @@ const CRUDManager = {
                 }
             }
         );
-    }
-};
-console.log('✅ CRUD Manager loaded (Part 1 - Company operations fixed)');
+    },
+
     // ========================================
     // USER/MEMBER CRUD OPERATIONS
     // ========================================
-
+    
     showAddUserForm() {
         const companies = AppState.data.companies;
         
