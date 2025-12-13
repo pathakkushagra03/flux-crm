@@ -131,6 +131,20 @@ const CRUDManager = {
         return data;
     },
 
+/**
+ * Render star rating selector
+ */
+renderStarRating(currentRating = 0, inputName = 'rating') {
+    // Copy the code from the artifact above
+},
+
+/**
+ * Set rating value
+ */
+setRating(inputName, rating) {
+    // Copy the code from the artifact above
+},
+
     // ========================================
     // COMPANY CRUD OPERATIONS
     // ========================================
@@ -567,7 +581,7 @@ const CRUDManager = {
 
         const data = this.getFormData(form);
         data.company = AppState.selectedCompany;
-
+data.rating = parseInt(data.rating) || 0;
         try {
             if (AirtableAPI.isConfigured()) {
                 await AirtableAPI.addClient(data);
@@ -604,6 +618,10 @@ const CRUDManager = {
                     <input type="text" name="name" class="form-input" value="${client.name}" required>
                     <div class="form-error">Client name is required</div>
                 </div>
+                <div class="form-group">
+    <label class="form-label">Client Rating</label>
+    ${this.renderStarRating(client.rating || 0)}
+</div>
                 
                 <div class="form-group">
                     <label class="form-label">Email</label>
@@ -640,6 +658,10 @@ const CRUDManager = {
                         <option value="Low" ${client.priority === 'Low' ? 'selected' : ''}>Low</option>
                     </select>
                 </div>
+                <div class="form-group">
+    <label class="form-label">Client Rating</label>
+    ${this.renderStarRating(0)}
+</div>
                 
                 <div class="form-group">
                     <label class="form-label">Assigned User</label>
@@ -670,6 +692,7 @@ const CRUDManager = {
         if (!this.validateForm(form)) return;
 
         const data = this.getFormData(form);
+        data.rating = parseInt(data.rating) || 0;
 
         try {
             if (AirtableAPI.isConfigured()) {
@@ -782,6 +805,7 @@ const CRUDManager = {
 
         const data = this.getFormData(form);
         data.company = AppState.selectedCompany;
+        data.rating = parseInt(data.rating) || 0;
 
         try {
             if (AirtableAPI.isConfigured()) {
@@ -875,7 +899,7 @@ const CRUDManager = {
         if (!this.validateForm(form)) return;
 
         const data = this.getFormData(form);
-
+data.rating = parseInt(data.rating) || 0;
         try {
             if (AirtableAPI.isConfigured()) {
                 await AirtableAPI.updateLead(leadId, data);
