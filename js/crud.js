@@ -1199,23 +1199,28 @@ console.log('✅ CRUD Manager loaded (Part 1 - Company operations fixed)');
             } else {
                 if (!AppState.data.clientTodos) AppState.data.clientTodos = [];
                 AppState.data.clientTodos.push({
-                    id: Date.now().toString(),
+                    id: 'demo-ctodo-' + Date.now().toString(),
                     ...data
                 });
+                this.showToast('Client task created (Demo Mode)', 'success');
             }
 
             await loadCompanyData(AppState.selectedCompany);
             render();
             document.querySelector('.modal-overlay').remove();
+            
         } catch (error) {
             console.error('Error creating client task:', error);
-            this.showToast('Failed to create client task. Please try again.', 'error');
+            this.showToast('Failed to create client task: ' + error.message, 'error');
         }
     },
 
     showEditClientTodoForm(todoId) {
         const todo = AppState.data.clientTodos.find(t => t.id === todoId);
-        if (!todo) return;
+        if (!todo) {
+            this.showToast('Client task not found', 'error');
+            return;
+        }
 
         const users = AppState.data.users.filter(u => 
             u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
@@ -1300,15 +1305,19 @@ console.log('✅ CRUD Manager loaded (Part 1 - Company operations fixed)');
                 this.showToast('Client task updated successfully!', 'success');
             } else {
                 const todo = AppState.data.clientTodos.find(t => t.id === todoId);
-                Object.assign(todo, data);
+                if (todo) {
+                    Object.assign(todo, data);
+                }
+                this.showToast('Client task updated (Demo Mode)', 'success');
             }
 
             await loadCompanyData(AppState.selectedCompany);
             render();
             document.querySelector('.modal-overlay').remove();
+            
         } catch (error) {
             console.error('Error updating client task:', error);
-            this.showToast('Failed to update client task. Please try again.', 'error');
+            this.showToast('Failed to update client task: ' + error.message, 'error');
         }
     },
 
@@ -1323,18 +1332,20 @@ console.log('✅ CRUD Manager loaded (Part 1 - Company operations fixed)');
                         this.showToast('Client task deleted successfully!', 'success');
                     } else {
                         AppState.data.clientTodos = AppState.data.clientTodos.filter(t => t.id !== todoId);
+                        this.showToast('Client task deleted (Demo Mode)', 'success');
                     }
 
                     await loadCompanyData(AppState.selectedCompany);
                     render();
                     document.querySelector('.modal-overlay')?.remove();
+                    
                 } catch (error) {
                     console.error('Error deleting client task:', error);
-                    this.showToast('Failed to delete client task. Please try again.', 'error');
+                    this.showToast('Failed to delete client task: ' + error.message, 'error');
                 }
             }
         );
     }
 };
 
-console.log('✅ CRUD Manager loaded')
+console.log('✅ CRUD Manager loaded - All operations ready');
