@@ -65,9 +65,7 @@ const CRUDManager = {
         });
     },
 
-const CRUDManager = {
     
-    // ... your existing functions (showToast, showConfirmDialog, etc.) ...
     
     /**
      * Render star rating selector
@@ -197,18 +195,12 @@ const CRUDManager = {
     },
 
 /**
- * Render star rating selector
  */
-renderStarRating(currentRating = 0, inputName = 'rating') {
-    // Copy the code from the artifact above
 },
 
 /**
  * Set rating value
  */
-setRating(inputName, rating) {
-    // Copy the code from the artifact above
-},
 
     // ========================================
     // COMPANY CRUD OPERATIONS
