@@ -27,6 +27,20 @@ const AppState = {
     userSpecificData: null
 };
 
+if (typeof AirtableAPI === 'undefined') {
+    console.warn('⚠️ AirtableAPI not loaded, creating fallback');
+    window.AirtableAPI = {
+        isConfigured: () => false,
+        getCompanies: () => Promise.resolve({ records: [] }),
+        getUsers: () => Promise.resolve({ records: [] }),
+        getClients: () => Promise.resolve({ records: [] }),
+        getLeads: () => Promise.resolve({ records: [] }),
+        getGeneralTodos: () => Promise.resolve({ records: [] }),
+        getClientTodos: () => Promise.resolve({ records: [] }),
+        authenticateUser: () => Promise.resolve(null)
+    };
+}
+
 // ========================================
 // STATUS BADGE SYSTEM
 // ========================================
