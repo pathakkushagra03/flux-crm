@@ -1,7 +1,7 @@
 /*
  * AIRTABLE API INTEGRATION
  * Complete CRUD operations for all entities
- * Updated to match new Airtable schema
+ * Updated to match new Airtable schema with Photo Support
  */
 
 // ========================================
@@ -175,60 +175,30 @@ const AirtableAPI = {
     // COMPANIES
     // ========================================
     
-    aasync getCompanies(pageSize = 100, offset = null) {
-    const result = await this.fetchFromAirtable(
-        AIRTABLE_CONFIG.TABLES.COMPANIES,
-        '',
-        ['CompanyName', 'Photo'],
-        pageSize,
-        offset
-    );
-    
-    return {
-        records: result.records.map(record => ({
-            id: record.id,
-            name: record.CompanyName || 'Unnamed Company',
-            photo: record.Photo || '',
-            color: this.generateColor(record.id)
-        })),
-        offset: result.offset
-    };
-},
-
-async addCompany(data) {
-    const fields = {
-        CompanyName: data.name,
-        Photo: data.photo || ''
-    };
-    
-    const record = await this.createRecord(AIRTABLE_CONFIG.TABLES.COMPANIES, fields);
-    
-    return {
-        id: record.id,
-        name: record.CompanyName,
-        photo: record.Photo || '',
-        color: this.generateColor(record.id)
-    };
-},
-
-async updateCompany(id, data) {
-    const fields = {};
-    if (data.name) fields.CompanyName = data.name;
-    if (data.photo !== undefined) fields.Photo = data.photo;
-    
-    const record = await this.updateRecord(AIRTABLE_CONFIG.TABLES.COMPANIES, id, fields);
-    
-    return {
-        id: record.id,
-        name: record.CompanyName,
-        photo: record.Photo || '',
-        color: this.generateColor(record.id)
-    };
-},
+    async getCompanies(pageSize = 100, offset = null) {
+        const result = await this.fetchFromAirtable(
+            AIRTABLE_CONFIG.TABLES.COMPANIES,
+            '',
+            ['CompanyName', 'Photo'],
+            pageSize,
+            offset
+        );
+        
+        return {
+            records: result.records.map(record => ({
+                id: record.id,
+                name: record.CompanyName || 'Unnamed Company',
+                photo: record.Photo || '',
+                color: this.generateColor(record.id)
+            })),
+            offset: result.offset
+        };
+    },
 
     async addCompany(data) {
         const fields = {
-            CompanyName: data.name
+            CompanyName: data.name,
+            Photo: data.photo || ''
         };
         
         const record = await this.createRecord(AIRTABLE_CONFIG.TABLES.COMPANIES, fields);
@@ -236,6 +206,7 @@ async updateCompany(id, data) {
         return {
             id: record.id,
             name: record.CompanyName,
+            photo: record.Photo || '',
             color: this.generateColor(record.id)
         };
     },
@@ -243,12 +214,14 @@ async updateCompany(id, data) {
     async updateCompany(id, data) {
         const fields = {};
         if (data.name) fields.CompanyName = data.name;
+        if (data.photo !== undefined) fields.Photo = data.photo;
         
         const record = await this.updateRecord(AIRTABLE_CONFIG.TABLES.COMPANIES, id, fields);
         
         return {
             id: record.id,
             name: record.CompanyName,
+            photo: record.Photo || '',
             color: this.generateColor(record.id)
         };
     },
@@ -267,7 +240,7 @@ async updateCompany(id, data) {
         const result = await this.fetchFromAirtable(
             AIRTABLE_CONFIG.TABLES.USERS,
             filter,
-            ['UserName', 'Email', 'Phone', 'Role', 'Companies', 'Password'],
+            ['UserName', 'Email', 'Phone', 'Role', 'Companies', 'Password', 'Photo'],
             pageSize,
             offset
         );
@@ -280,7 +253,8 @@ async updateCompany(id, data) {
                 phone: record.Phone || '',
                 role: record.Role || 'User',
                 companies: record.Companies || [],
-                password: record.Password || ''
+                password: record.Password || '',
+                photo: record.Photo || ''
             })),
             offset: result.offset
         };
@@ -293,7 +267,8 @@ async updateCompany(id, data) {
             Phone: data.phone || '',
             Role: data.role || 'User',
             Companies: data.companies ? [data.companies] : [],
-            Password: data.password || ''
+            Password: data.password || '',
+            Photo: data.photo || ''
         };
         
         const record = await this.createRecord(AIRTABLE_CONFIG.TABLES.USERS, fields);
@@ -305,7 +280,8 @@ async updateCompany(id, data) {
             phone: record.Phone,
             role: record.Role,
             companies: record.Companies || [],
-            password: record.Password
+            password: record.Password,
+            photo: record.Photo || ''
         };
     },
 
@@ -317,6 +293,7 @@ async updateCompany(id, data) {
         if (data.role) fields.Role = data.role;
         if (data.companies) fields.Companies = [data.companies];
         if (data.password !== undefined) fields.Password = data.password;
+        if (data.photo !== undefined) fields.Photo = data.photo;
         
         const record = await this.updateRecord(AIRTABLE_CONFIG.TABLES.USERS, id, fields);
         
@@ -327,7 +304,8 @@ async updateCompany(id, data) {
             phone: record.Phone,
             role: record.Role,
             companies: record.Companies || [],
-            password: record.Password
+            password: record.Password,
+            photo: record.Photo || ''
         };
     },
 
@@ -393,233 +371,211 @@ async updateCompany(id, data) {
     },
 
     async addClient(data) {
-    if (!this.isConfigured()) {
-        throw new Error('Airtable not configured');
-    }
+        if (!this.isConfigured()) {
+            throw new Error('Airtable not configured');
+        }
 
-    try {
-        console.log('Creating client with data:', data);
-        
-        const fields = {
-            Name: data.name,
-            Email: data.email || '',
-            'Phone Number': data.phone || '',
-            Status: data.status || 'Active',
-            AssignedUser: data.assignedUser ? [data.assignedUser] : [],
-            Company: data.company ? [data.company] : [],
-            'Lead Type': data.leadType || '',
-            Priority: data.priority || '',
-            Address: data.address || '',
-            Notes: data.notes || '',
-            'Deal Value': parseFloat(data.dealValue) || 0,
-            Rating: parseInt(data.rating) || 0
-        };
-        
-        // Only add date fields if they have values
-        if (data.lastContactDate) {
-            fields['Last Contact Date'] = data.lastContactDate;
-        }
-        if (data.nextFollowUpDate) {
-            fields['Next Follow Up Date'] = data.nextFollowUpDate;
-        }
-        if (data.bestTimeToContact) {
-            fields['Best Time to Contact'] = data.bestTimeToContact;
-        }
-        if (data.probabilityToClose !== undefined) {
-            fields['Probability to Close'] = parseFloat(data.probabilityToClose) || 0;
-        }
-        
-        console.log('Airtable fields to create:', fields);
-        
-        const url = `https://api.airtable.com/v0/${AIRTABLE_CONFIG.BASE_ID}/${AIRTABLE_CONFIG.TABLES.CLIENTS}`;
-        
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${AIRTABLE_CONFIG.TOKEN}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ fields })
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Airtable error response:', errorText);
+        try {
+            console.log('Creating client with data:', data);
             
-            let errorMessage = `HTTP ${response.status}`;
-            try {
-                const errorJson = JSON.parse(errorText);
-                if (errorJson.error && errorJson.error.message) {
-                    errorMessage = errorJson.error.message;
-                }
-            } catch (e) {
-                errorMessage = errorText.substring(0, 100);
+            const fields = {
+                Name: data.name,
+                Email: data.email || '',
+                'Phone Number': data.phone || '',
+                Status: data.status || 'Active',
+                AssignedUser: data.assignedUser ? [data.assignedUser] : [],
+                Company: data.company ? [data.company] : [],
+                'Lead Type': data.leadType || '',
+                Priority: data.priority || '',
+                Address: data.address || '',
+                Notes: data.notes || '',
+                'Deal Value': parseFloat(data.dealValue) || 0,
+                Rating: parseInt(data.rating) || 0
+            };
+            
+            // Only add date fields if they have values
+            if (data.lastContactDate) {
+                fields['Last Contact Date'] = data.lastContactDate;
+            }
+            if (data.nextFollowUpDate) {
+                fields['Next Follow Up Date'] = data.nextFollowUpDate;
+            }
+            if (data.bestTimeToContact) {
+                fields['Best Time to Contact'] = data.bestTimeToContact;
+            }
+            if (data.probabilityToClose !== undefined) {
+                fields['Probability to Close'] = parseFloat(data.probabilityToClose) || 0;
             }
             
-            throw new Error(`Failed to create client: ${errorMessage}`);
+            console.log('Airtable fields to create:', fields);
+            
+            const url = `https://api.airtable.com/v0/${AIRTABLE_CONFIG.BASE_ID}/${AIRTABLE_CONFIG.TABLES.CLIENTS}`;
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${AIRTABLE_CONFIG.TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ fields })
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Airtable error response:', errorText);
+                
+                let errorMessage = `HTTP ${response.status}`;
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    if (errorJson.error && errorJson.error.message) {
+                        errorMessage = errorJson.error.message;
+                    }
+                } catch (e) {
+                    errorMessage = errorText.substring(0, 100);
+                }
+                
+                throw new Error(`Failed to create client: ${errorMessage}`);
+            }
+            
+            const record = await response.json();
+            console.log('Client created successfully:', record);
+            
+            return {
+                id: record.id,
+                name: record.fields.Name,
+                email: record.fields.Email,
+                phone: record.fields['Phone Number'],
+                status: record.fields.Status,
+                assignedUser: record.fields.AssignedUser ? record.fields.AssignedUser[0] : null,
+                company: record.fields.Company ? record.fields.Company[0] : null,
+                leadType: record.fields['Lead Type'],
+                priority: record.fields.Priority,
+                address: record.fields.Address,
+                notes: record.fields.Notes,
+                dealValue: record.fields['Deal Value'],
+                rating: record.fields.Rating
+            };
+        } catch (error) {
+            console.error('Error creating client:', error);
+            throw error;
         }
-        
-        const record = await response.json();
-        console.log('Client created successfully:', record);
-        
-        return {
-            id: record.id,
-            name: record.fields.Name,
-            email: record.fields.Email,
-            phone: record.fields['Phone Number'],
-            status: record.fields.Status,
-            assignedUser: record.fields.AssignedUser ? record.fields.AssignedUser[0] : null,
-            company: record.fields.Company ? record.fields.Company[0] : null,
-            leadType: record.fields['Lead Type'],
-            priority: record.fields.Priority,
-            address: record.fields.Address,
-            notes: record.fields.Notes,
-            dealValue: record.fields['Deal Value'],
-            rating: record.fields.Rating
-        };
-    } catch (error) {
-        console.error('Error creating client:', error);
-        throw error;
-    }
-},
-
-console.log('✅ Improved Airtable Client Functions loaded');
-        
-        const record = await this.createRecord(AIRTABLE_CONFIG.TABLES.CLIENTS, fields);
-        
-        return {
-            id: record.id,
-            name: record.Name,
-            email: record.Email,
-            phone: record['Phone Number'],
-            status: record.Status,
-            assignedUser: record.AssignedUser ? record.AssignedUser[0] : null,
-            company: record.Company ? record.Company[0] : null,
-            leadType: record['Lead Type'],
-            priority: record.Priority,
-            address: record.Address,
-            notes: record.Notes,
-            dealValue: record['Deal Value'],
-            rating: record.Rating
-        };
     },
 
     async updateClient(id, data) {
-    if (!this.isConfigured()) {
-        throw new Error('Airtable not configured');
-    }
+        if (!this.isConfigured()) {
+            throw new Error('Airtable not configured');
+        }
 
-    try {
-        console.log('Updating client:', id, 'with data:', data);
-        
-        // Build fields object - only include fields that have values
-        const fields = {};
-        
-        // Required field
-        if (data.name) fields.Name = data.name;
-        
-        // Optional fields - only add if they exist
-        if (data.email !== undefined && data.email !== null) {
-            fields.Email = data.email;
-        }
-        if (data.phone !== undefined && data.phone !== null) {
-            fields['Phone Number'] = data.phone;
-        }
-        if (data.status) {
-            fields.Status = data.status;
-        }
-        if (data.leadType !== undefined && data.leadType !== null) {
-            fields['Lead Type'] = data.leadType;
-        }
-        if (data.priority !== undefined && data.priority !== null) {
-            fields.Priority = data.priority;
-        }
-        if (data.address !== undefined && data.address !== null) {
-            fields.Address = data.address;
-        }
-        if (data.notes !== undefined && data.notes !== null) {
-            fields.Notes = data.notes;
-        }
-        
-        // Linked records - handle carefully
-        if (data.assignedUser !== undefined) {
-            fields.AssignedUser = data.assignedUser ? [data.assignedUser] : [];
-        }
-        if (data.company !== undefined) {
-            fields.Company = data.company ? [data.company] : [];
-        }
-        
-        // Numeric fields
-        if (data.dealValue !== undefined && data.dealValue !== null) {
-            fields['Deal Value'] = parseFloat(data.dealValue) || 0;
-        }
-        if (data.rating !== undefined && data.rating !== null) {
-            fields.Rating = parseInt(data.rating) || 0;
-        }
-        
-        // Date fields - only add if present
-        if (data.lastContactDate !== undefined && data.lastContactDate !== null && data.lastContactDate !== '') {
-            fields['Last Contact Date'] = data.lastContactDate;
-        }
-        if (data.nextFollowUpDate !== undefined && data.nextFollowUpDate !== null && data.nextFollowUpDate !== '') {
-            fields['Next Follow Up Date'] = data.nextFollowUpDate;
-        }
-        if (data.bestTimeToContact !== undefined && data.bestTimeToContact !== null) {
-            fields['Best Time to Contact'] = data.bestTimeToContact;
-        }
-        if (data.probabilityToClose !== undefined && data.probabilityToClose !== null) {
-            fields['Probability to Close'] = parseFloat(data.probabilityToClose) || 0;
-        }
-        
-        console.log('Airtable fields to update:', fields);
-        
-        const url = `https://api.airtable.com/v0/${AIRTABLE_CONFIG.BASE_ID}/${AIRTABLE_CONFIG.TABLES.CLIENTS}/${id}`;
-        
-        const response = await fetch(url, {
-            method: 'PATCH',
-            headers: {
-                'Authorization': `Bearer ${AIRTABLE_CONFIG.TOKEN}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ fields })
-        });
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Airtable error response:', errorText);
+        try {
+            console.log('Updating client:', id, 'with data:', data);
             
-            // Try to parse error message
-            let errorMessage = `HTTP ${response.status}`;
-            try {
-                const errorJson = JSON.parse(errorText);
-                if (errorJson.error && errorJson.error.message) {
-                    errorMessage = errorJson.error.message;
-                } else if (errorJson.error && errorJson.error.type) {
-                    errorMessage = errorJson.error.type;
-                }
-            } catch (e) {
-                errorMessage = errorText.substring(0, 100);
+            // Build fields object - only include fields that have values
+            const fields = {};
+            
+            // Required field
+            if (data.name) fields.Name = data.name;
+            
+            // Optional fields - only add if they exist
+            if (data.email !== undefined && data.email !== null) {
+                fields.Email = data.email;
+            }
+            if (data.phone !== undefined && data.phone !== null) {
+                fields['Phone Number'] = data.phone;
+            }
+            if (data.status) {
+                fields.Status = data.status;
+            }
+            if (data.leadType !== undefined && data.leadType !== null) {
+                fields['Lead Type'] = data.leadType;
+            }
+            if (data.priority !== undefined && data.priority !== null) {
+                fields.Priority = data.priority;
+            }
+            if (data.address !== undefined && data.address !== null) {
+                fields.Address = data.address;
+            }
+            if (data.notes !== undefined && data.notes !== null) {
+                fields.Notes = data.notes;
             }
             
-            throw new Error(`Failed to update client: ${errorMessage}`);
+            // Linked records - handle carefully
+            if (data.assignedUser !== undefined) {
+                fields.AssignedUser = data.assignedUser ? [data.assignedUser] : [];
+            }
+            if (data.company !== undefined) {
+                fields.Company = data.company ? [data.company] : [];
+            }
+            
+            // Numeric fields
+            if (data.dealValue !== undefined && data.dealValue !== null) {
+                fields['Deal Value'] = parseFloat(data.dealValue) || 0;
+            }
+            if (data.rating !== undefined && data.rating !== null) {
+                fields.Rating = parseInt(data.rating) || 0;
+            }
+            
+            // Date fields - only add if present
+            if (data.lastContactDate !== undefined && data.lastContactDate !== null && data.lastContactDate !== '') {
+                fields['Last Contact Date'] = data.lastContactDate;
+            }
+            if (data.nextFollowUpDate !== undefined && data.nextFollowUpDate !== null && data.nextFollowUpDate !== '') {
+                fields['Next Follow Up Date'] = data.nextFollowUpDate;
+            }
+            if (data.bestTimeToContact !== undefined && data.bestTimeToContact !== null) {
+                fields['Best Time to Contact'] = data.bestTimeToContact;
+            }
+            if (data.probabilityToClose !== undefined && data.probabilityToClose !== null) {
+                fields['Probability to Close'] = parseFloat(data.probabilityToClose) || 0;
+            }
+            
+            console.log('Airtable fields to update:', fields);
+            
+            const url = `https://api.airtable.com/v0/${AIRTABLE_CONFIG.BASE_ID}/${AIRTABLE_CONFIG.TABLES.CLIENTS}/${id}`;
+            
+            const response = await fetch(url, {
+                method: 'PATCH',
+                headers: {
+                    'Authorization': `Bearer ${AIRTABLE_CONFIG.TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ fields })
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Airtable error response:', errorText);
+                
+                // Try to parse error message
+                let errorMessage = `HTTP ${response.status}`;
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    if (errorJson.error && errorJson.error.message) {
+                        errorMessage = errorJson.error.message;
+                    } else if (errorJson.error && errorJson.error.type) {
+                        errorMessage = errorJson.error.type;
+                    }
+                } catch (e) {
+                    errorMessage = errorText.substring(0, 100);
+                }
+                
+                throw new Error(`Failed to update client: ${errorMessage}`);
+            }
+            
+            const responseData = await response.json();
+            console.log('Airtable update success:', responseData);
+            
+            return {
+                id: responseData.id,
+                name: responseData.fields.Name,
+                status: responseData.fields.Status,
+                dealValue: responseData.fields['Deal Value'],
+                rating: responseData.fields.Rating
+            };
+        } catch (error) {
+            console.error('Error in updateClient:', error);
+            throw error;
         }
-        
-        const responseData = await response.json();
-        console.log('Airtable update success:', responseData);
-        
-        return {
-            id: responseData.id,
-            name: responseData.fields.Name,
-            status: responseData.fields.Status,
-            dealValue: responseData.fields['Deal Value'],
-            rating: responseData.fields.Rating
-        };
-    } catch (error) {
-        console.error('Error in updateClient:', error);
-        throw error;
-    }
-},
-
+    },
 
     async deleteClient(id) {
         return await this.deleteRecord(AIRTABLE_CONFIG.TABLES.CLIENTS, id);
@@ -978,5 +934,5 @@ console.log('✅ Improved Airtable Client Functions loaded');
     }
 };
 
-console.log('✅ Airtable API loaded');
+console.log('✅ Airtable API loaded with Photo Support');
 console.log('⚙️ Configuration:', AirtableAPI.isConfigured() ? 'Ready' : 'Needs TOKEN and BASE_ID');
