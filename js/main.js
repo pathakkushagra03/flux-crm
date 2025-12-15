@@ -300,13 +300,34 @@ const Views = {
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         ${AppState.data.companies.map((company, index) => `
-                            <div class="company-card p-6 text-center fade-in" 
-                                 style="animation-delay: ${index * 0.1}s"
-                                 onclick="selectCompany('${company.id}')">
-                                <div class="text-5xl mb-4">🏢</div>
-                                <h3 class="text-white text-xl font-bold">${company.name}</h3>
-                            </div>
-                        `).join('')}
+    <div class="company-card p-6 text-center fade-in relative group" 
+         style="animation-delay: ${index * 0.1}s">
+        <!-- Edit and Delete Buttons -->
+        <div class="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button class="btn btn-secondary btn-sm p-2 text-xs" 
+                    onclick="event.stopPropagation(); CRUDManager.showEditCompanyForm('${company.id}')"
+                    title="Edit Company">
+                ✏️
+            </button>
+            <button class="btn btn-danger btn-sm p-2 text-xs" 
+                    onclick="event.stopPropagation(); CRUDManager.deleteCompany('${company.id}')"
+                    title="Delete Company">
+                🗑️
+            </button>
+        </div>
+        
+        <!-- Company Card Content (clickable to select) -->
+        <div onclick="selectCompany('${company.id}')">
+            ${company.photo ? 
+                `<div class="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden bg-white bg-opacity-10">
+                    <img src="${company.photo}" alt="${company.name}" class="w-full h-full object-cover">
+                </div>` : 
+                '<div class="text-5xl mb-4">🏢</div>'
+            }
+            <h3 class="text-white text-xl font-bold">${company.name}</h3>
+        </div>
+    </div>
+`).join('')}
                     </div>
                 </div>
             </div>

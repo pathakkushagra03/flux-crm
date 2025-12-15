@@ -310,6 +310,26 @@ body {
     cursor: not-allowed;
 }
 
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 13px;
+}
+
+/* ========================================
+   PHOTO UPLOAD STYLES
+   ======================================== */
+#companyPhotoPreview,
+#userPhotoPreview {
+    border: 2px dashed rgba(255, 255, 255, 0.3);
+    transition: all 0.3s ease;
+}
+
+#companyPhotoPreview:hover,
+#userPhotoPreview:hover {
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: scale(1.05);
+}
+
 /* ========================================
    ANIMATIONS
    ======================================== */

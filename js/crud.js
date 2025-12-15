@@ -1,5 +1,6 @@
 // ========================================
 // CRUD OPERATIONS & MODAL MANAGEMENT
+// Updated with Photo Upload Support
 // ========================================
 
 const CRUDManager = {
@@ -132,12 +133,100 @@ const CRUDManager = {
     },
 
     // ========================================
+    // PHOTO UPLOAD UTILITIES
+    // ========================================
+    
+    handlePhotoUpload(previewId, dataId, inputElement) {
+        const file = inputElement.files[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            this.showToast('❌ Please select an image file', 'error');
+            return;
+        }
+
+        // Validate file size (max 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            this.showToast('❌ Image must be smaller than 2MB', 'error');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const dataUrl = e.target.result;
+            
+            // Update preview
+            const preview = document.getElementById(previewId);
+            if (preview) {
+                preview.innerHTML = `<img src="${dataUrl}" alt="Preview" class="w-full h-full object-cover">`;
+            }
+            
+            // Store data URL
+            const dataInput = document.getElementById(dataId);
+            if (dataInput) {
+                dataInput.value = dataUrl;
+            }
+            
+            this.showToast('✅ Photo uploaded successfully', 'success');
+        };
+        
+        reader.onerror = () => {
+            this.showToast('❌ Failed to read image file', 'error');
+        };
+        
+        reader.readAsDataURL(file);
+    },
+
+    removePhoto(previewId, dataId) {
+        const preview = document.getElementById(previewId);
+        const dataInput = document.getElementById(dataId);
+        
+        if (preview) {
+            // Reset to default icon based on context
+            if (previewId.includes('company')) {
+                preview.innerHTML = '<span class="text-6xl">🏢</span>';
+            } else {
+                preview.innerHTML = '<span class="text-6xl">👤</span>';
+            }
+        }
+        
+        if (dataInput) {
+            dataInput.value = '';
+        }
+        
+        // Remove the remove button
+        const removeBtn = event.target;
+        if (removeBtn) {
+            removeBtn.remove();
+        }
+        
+        this.showToast('✅ Photo removed', 'success');
+    },
+
+    // ========================================
     // COMPANY CRUD OPERATIONS
     // ========================================
 
     showAddCompanyForm() {
         const content = `
             <form id="addCompanyForm">
+                <div class="form-group">
+                    <label class="form-label">Company Logo</label>
+                    <div class="mb-3">
+                        <div id="companyPhotoPreview" class="w-32 h-32 mx-auto mb-3 rounded-full overflow-hidden bg-white bg-opacity-10 flex items-center justify-center">
+                            <span class="text-6xl">🏢</span>
+                        </div>
+                        <input type="file" 
+                               id="companyPhotoInput" 
+                               accept="image/*" 
+                               class="form-input"
+                               onchange="CRUDManager.handlePhotoUpload('companyPhotoPreview', 'companyPhotoData', this)">
+                        <input type="hidden" id="companyPhotoData" name="photo">
+                        <p class="text-white text-xs opacity-60 mt-2">Maximum file size: 2MB. Recommended: Square image (e.g., 400x400px)</p>
+                    </div>
+                </div>
+                
                 <div class="form-group">
                     <label class="form-label required">Company Name</label>
                     <input type="text" name="name" class="form-input" placeholder="Enter company name" required>
@@ -173,6 +262,7 @@ const CRUDManager = {
                 newCompany = {
                     id: 'demo-' + Date.now().toString(),
                     name: data.name,
+                    photo: data.photo || '',
                     color: colors[Math.floor(Math.random() * colors.length)]
                 };
                 this.showToast('Company created (Demo Mode)', 'success');
@@ -200,6 +290,26 @@ const CRUDManager = {
 
         const content = `
             <form id="editCompanyForm">
+                <div class="form-group">
+                    <label class="form-label">Company Logo</label>
+                    <div class="mb-3">
+                        <div id="companyPhotoPreview" class="w-32 h-32 mx-auto mb-3 rounded-full overflow-hidden bg-white bg-opacity-10 flex items-center justify-center">
+                            ${company.photo ? 
+                                `<img src="${company.photo}" alt="${company.name}" class="w-full h-full object-cover">` : 
+                                '<span class="text-6xl">🏢</span>'
+                            }
+                        </div>
+                        <input type="file" 
+                               id="companyPhotoInput" 
+                               accept="image/*" 
+                               class="form-input"
+                               onchange="CRUDManager.handlePhotoUpload('companyPhotoPreview', 'companyPhotoData', this)">
+                        <input type="hidden" id="companyPhotoData" name="photo" value="${company.photo || ''}">
+                        ${company.photo ? '<button type="button" class="btn btn-secondary btn-sm mt-2 w-full" onclick="CRUDManager.removePhoto(\'companyPhotoPreview\', \'companyPhotoData\')">Remove Photo</button>' : ''}
+                        <p class="text-white text-xs opacity-60 mt-2">Maximum file size: 2MB. Recommended: Square image (e.g., 400x400px)</p>
+                    </div>
+                </div>
+                
                 <div class="form-group">
                     <label class="form-label required">Company Name</label>
                     <input type="text" name="name" class="form-input" value="${company.name}" required>
@@ -233,6 +343,7 @@ const CRUDManager = {
                 const company = AppState.data.companies.find(c => c.id === companyId);
                 if (company) {
                     company.name = data.name;
+                    company.photo = data.photo || company.photo;
                 }
                 this.showToast('Company updated (Demo Mode)', 'success');
             }
@@ -289,6 +400,22 @@ const CRUDManager = {
         
         const content = `
             <form id="addUserForm">
+                <div class="form-group">
+                    <label class="form-label">Profile Photo</label>
+                    <div class="mb-3">
+                        <div id="userPhotoPreview" class="w-32 h-32 mx-auto mb-3 rounded-full overflow-hidden bg-white bg-opacity-10 flex items-center justify-center">
+                            <span class="text-6xl">👤</span>
+                        </div>
+                        <input type="file" 
+                               id="userPhotoInput" 
+                               accept="image/*" 
+                               class="form-input"
+                               onchange="CRUDManager.handlePhotoUpload('userPhotoPreview', 'userPhotoData', this)">
+                        <input type="hidden" id="userPhotoData" name="photo">
+                        <p class="text-white text-xs opacity-60 mt-2">Maximum file size: 2MB. Recommended: Square image (e.g., 400x400px)</p>
+                    </div>
+                </div>
+                
                 <div class="form-group">
                     <label class="form-label required">User Name</label>
                     <input type="text" name="name" class="form-input" placeholder="Enter user name" required>
@@ -380,6 +507,26 @@ const CRUDManager = {
         
         const content = `
             <form id="editUserForm">
+                <div class="form-group">
+                    <label class="form-label">Profile Photo</label>
+                    <div class="mb-3">
+                        <div id="userPhotoPreview" class="w-32 h-32 mx-auto mb-3 rounded-full overflow-hidden bg-white bg-opacity-10 flex items-center justify-center">
+                            ${user.photo ? 
+                                `<img src="${user.photo}" alt="${user.name}" class="w-full h-full object-cover">` : 
+                                '<span class="text-6xl">👤</span>'
+                            }
+                        </div>
+                        <input type="file" 
+                               id="userPhotoInput" 
+                               accept="image/*" 
+                               class="form-input"
+                               onchange="CRUDManager.handlePhotoUpload('userPhotoPreview', 'userPhotoData', this)">
+                        <input type="hidden" id="userPhotoData" name="photo" value="${user.photo || ''}">
+                        ${user.photo ? '<button type="button" class="btn btn-secondary btn-sm mt-2 w-full" onclick="CRUDManager.removePhoto(\'userPhotoPreview\', \'userPhotoData\')">Remove Photo</button>' : ''}
+                        <p class="text-white text-xs opacity-60 mt-2">Maximum file size: 2MB. Recommended: Square image (e.g., 400x400px)</p>
+                    </div>
+                </div>
+                
                 <div class="form-group">
                     <label class="form-label required">User Name</label>
                     <input type="text" name="name" class="form-input" value="${user.name}" required>
@@ -487,1171 +634,8 @@ const CRUDManager = {
                 }
             }
         );
-    },
-
-    // ========================================
-    // CLIENT CRUD OPERATIONS
-    // ========================================
-
-    showAddClientForm() {
-        const users = AppState.data.users.filter(u => 
-            u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
-        );
-        
-        const content = `
-            <form id="addClientForm">
-                <div class="form-group">
-                    <label class="form-label required">Client Name</label>
-                    <input type="text" name="name" class="form-input" placeholder="Enter client name" required>
-                    <div class="form-error">Client name is required</div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Email</label>
-                    <input type="email" name="email" class="form-input" placeholder="client@example.com">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Phone</label>
-                    <input type="tel" name="phone" class="form-input" placeholder="+1 (555) 000-0000">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Lead Type</label>
-                    <input type="text" name="leadType" class="form-input" placeholder="e.g., Referral, Online, Event">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Status</label>
-                    <select name="status" class="form-select" required>
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                        <option value="On Hold">On Hold</option>
-                        <option value="VIP">VIP</option>
-                        <option value="Churned">Churned</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Priority</label>
-                    <select name="priority" class="form-select">
-                        <option value="">None</option>
-                        <option value="High">High</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Low">Low</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Assigned User</label>
-                    <select name="assignedUser" class="form-select">
-                        <option value="">Unassigned</option>
-                        ${users.map(user => `<option value="${user.id}">${user.name}</option>`).join('')}
-                    </select>
-                </div>
-            </form>
-        `;
-
-        const footer = `
-            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-            <button class="btn btn-primary" onclick="CRUDManager.submitAddClient()">Create Client</button>
-        `;
-
-        const modal = this.createModal('Add New Client', content, footer);
-        document.body.appendChild(modal);
-    },
-
-    async submitAddClient() {
-        const form = document.getElementById('addClientForm');
-        if (!this.validateForm(form)) return;
-
-        const data = this.getFormData(form);
-        data.company = AppState.selectedCompany;
-
-        try {
-            if (AirtableAPI.isConfigured()) {
-                await AirtableAPI.addClient(data);
-                this.showToast('Client created successfully!', 'success');
-            } else {
-                AppState.data.clients.push({
-                    id: Date.now().toString(),
-                    ...data
-                });
-                this.showToast('Client created (demo mode)', 'success');
-            }
-
-            await loadCompanyData(AppState.selectedCompany);
-            render();
-            document.querySelector('.modal-overlay').remove();
-        } catch (error) {
-            console.error('Error creating client:', error);
-            this.showToast('Failed to create client. Please try again.', 'error');
-        }
-    },
-
-    showEditClientForm(clientId) {
-        const client = AppState.data.clients.find(c => c.id === clientId);
-        if (!client) return;
-
-        const users = AppState.data.users.filter(u => 
-            u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
-        );
-        
-        const content = `
-            <form id="editClientForm">
-                <div class="form-group">
-                    <label class="form-label required">Client Name</label>
-                    <input type="text" name="name" class="form-input" value="${client.name}" required>
-                    <div class="form-error">Client name is required</div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Email</label>
-                    <input type="email" name="email" class="form-input" value="${client.email || ''}">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Phone</label>
-                    <input type="tel" name="phone" class="form-input" value="${client.phone || ''}">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Lead Type</label>
-                    <input type="text" name="leadType" class="form-input" value="${client.leadType || ''}">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Status</label>
-                    <select name="status" class="form-select" required>
-                        <option value="Active" ${client.status === 'Active' ? 'selected' : ''}>Active</option>
-                        <option value="Inactive" ${client.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
-                        <option value="On Hold" ${client.status === 'On Hold' ? 'selected' : ''}>On Hold</option>
-                        <option value="VIP" ${client.status === 'VIP' ? 'selected' : ''}>VIP</option>
-                        <option value="Churned" ${client.status === 'Churned' ? 'selected' : ''}>Churned</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Priority</label>
-                    <select name="priority" class="form-select">
-                        <option value="">None</option>
-                        <option value="High" ${client.priority === 'High' ? 'selected' : ''}>High</option>
-                        <option value="Medium" ${client.priority === 'Medium' ? 'selected' : ''}>Medium</option>
-                        <option value="Low" ${client.priority === 'Low' ? 'selected' : ''}>Low</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Assigned User</label>
-                    <select name="assignedUser" class="form-select">
-                        <option value="">Unassigned</option>
-                        ${users.map(user => `
-                            <option value="${user.id}" ${client.assignedUser === user.id ? 'selected' : ''}>
-                                ${user.name}
-                            </option>
-                        `).join('')}
-                    </select>
-                </div>
-            </form>
-        `;
-
-        const footer = `
-            <button class="btn btn-danger" onclick="CRUDManager.deleteClient('${clientId}')">Delete</button>
-            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-            <button class="btn btn-primary" onclick="CRUDManager.submitEditClient('${clientId}')">Update Client</button>
-        `;
-
-        const modal = this.createModal('Edit Client', content, footer);
-        document.body.appendChild(modal);
-    },
-
-    async submitEditClient(clientId) {
-        const form = document.getElementById('editClientForm');
-        if (!this.validateForm(form)) return;
-
-        const data = this.getFormData(form);
-
-        try {
-            if (AirtableAPI.isConfigured()) {
-                await AirtableAPI.updateClient(clientId, data);
-                this.showToast('Client updated successfully!', 'success');
-            } else {
-                const client = AppState.data.clients.find(c => c.id === clientId);
-                Object.assign(client, data);
-            }
-
-            await loadCompanyData(AppState.selectedCompany);
-            render();
-            document.querySelector('.modal-overlay').remove();
-        } catch (error) {
-            console.error('Error updating client:', error);
-            this.showToast('Failed to update client. Please try again.', 'error');
-        }
-    },
-
-    deleteClient(clientId) {
-        this.showConfirmDialog(
-            'Delete Client',
-            'Are you sure you want to delete this client? This action cannot be undone.',
-            async () => {
-                try {
-                    if (AirtableAPI.isConfigured()) {
-                        await AirtableAPI.deleteClient(clientId);
-                        this.showToast('Client deleted successfully!', 'success');
-                    } else {
-                        AppState.data.clients = AppState.data.clients.filter(c => c.id !== clientId);
-                    }
-
-                    await loadCompanyData(AppState.selectedCompany);
-                    render();
-                    document.querySelector('.modal-overlay')?.remove();
-                } catch (error) {
-                    console.error('Error deleting client:', error);
-                    this.showToast('Failed to delete client. Please try again.', 'error');
-                }
-            }
-        );
-    },
-
-    // ========================================
-    // LEAD CRUD OPERATIONS
-    // ========================================
-
-    showAddLeadForm() {
-        const users = AppState.data.users.filter(u => 
-            u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
-        );
-        
-        const content = `
-            <form id="addLeadForm">
-                <div class="form-group">
-                    <label class="form-label required">Lead Name</label>
-                    <input type="text" name="name" class="form-input" placeholder="Enter lead name" required>
-                    <div class="form-error">Lead name is required</div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Description</label>
-                    <textarea name="description" class="form-textarea" placeholder="Lead description"></textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Status</label>
-                    <select name="status" class="form-select" required>
-                        <option value="New">New</option>
-                        <option value="Contacted">Contacted</option>
-                        <option value="Qualified">Qualified</option>
-                        <option value="Proposal Sent">Proposal Sent</option>
-                        <option value="Won">Won</option>
-                        <option value="Lost">Lost</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Priority</label>
-                    <select name="priority" class="form-select">
-                        <option value="">None</option>
-                        <option value="High">High</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Low">Low</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Assigned User</label>
-                    <select name="assignedUser" class="form-select">
-                        <option value="">Unassigned</option>
-                        ${users.map(user => `<option value="${user.id}">${user.name}</option>`).join('')}
-                    </select>
-                </div>
-            </form>
-        `;
-
-        const footer = `
-            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-            <button class="btn btn-primary" onclick="CRUDManager.submitAddLead()">Create Lead</button>
-        `;
-
-        const modal = this.createModal('Add New Lead', content, footer);
-        document.body.appendChild(modal);
-    },
-
-    async submitAddLead() {
-        const form = document.getElementById('addLeadForm');
-        if (!this.validateForm(form)) return;
-
-        const data = this.getFormData(form);
-        data.company = AppState.selectedCompany;
-
-        try {
-            if (AirtableAPI.isConfigured()) {
-                await AirtableAPI.addLead(data);
-                this.showToast('Lead created successfully!', 'success');
-            } else {
-                AppState.data.leads.push({
-                    id: Date.now().toString(),
-                    ...data
-                });
-            }
-
-            await loadCompanyData(AppState.selectedCompany);
-            render();
-            document.querySelector('.modal-overlay').remove();
-        } catch (error) {
-            console.error('Error creating lead:', error);
-            this.showToast('Failed to create lead. Please try again.', 'error');
-        }
-    },
-
-    showEditLeadForm(leadId) {
-        const lead = AppState.data.leads.find(l => l.id === leadId);
-        if (!lead) return;
-
-        const users = AppState.data.users.filter(u => 
-            u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
-        );
-        
-        const content = `
-            <form id="editLeadForm">
-                <div class="form-group">
-                    <label class="form-label required">Lead Name</label>
-                    <input type="text" name="name" class="form-input" value="${lead.name}" required>
-                    <div class="form-error">Lead name is required</div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Description</label>
-                    <textarea name="description" class="form-textarea">${lead.description || ''}</textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Status</label>
-                    <select name="status" class="form-select" required>
-                        <option value="New" ${lead.status === 'New' ? 'selected' : ''}>New</option>
-                        <option value="Contacted" ${lead.status === 'Contacted' ? 'selected' : ''}>Contacted</option>
-                        <option value="Qualified" ${lead.status === 'Qualified' ? 'selected' : ''}>Qualified</option>
-                        <option value="Proposal Sent" ${lead.status === 'Proposal Sent' ? 'selected' : ''}>Proposal Sent</option>
-                        <option value="Won" ${lead.status === 'Won' ? 'selected' : ''}>Won</option>
-                        <option value="Lost" ${lead.status === 'Lost' ? 'selected' : ''}>Lost</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Priority</label>
-                    <select name="priority" class="form-select">
-                        <option value="">None</option>
-                        <option value="High" ${lead.priority === 'High' ? 'selected' : ''}>High</option>
-                        <option value="Medium" ${lead.priority === 'Medium' ? 'selected' : ''}>Medium</option>
-                        <option value="Low" ${lead.priority === 'Low' ? 'selected' : ''}>Low</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Assigned User</label>
-                    <select name="assignedUser" class="form-select">
-                        <option value="">Unassigned</option>
-                        ${users.map(user => `
-                            <option value="${user.id}" ${lead.assignedUser === user.id ? 'selected' : ''}>
-                                ${user.name}
-                            </option>
-                        `).join('')}
-                    </select>
-                </div>
-            </form>
-        `;
-
-        const footer = `
-            <button class="btn btn-danger" onclick="CRUDManager.deleteLead('${leadId}')">Delete</button>
-            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-            <button class="btn btn-primary" onclick="CRUDManager.submitEditLead('${leadId}')">Update Lead</button>
-        `;
-
-        const modal = this.createModal('Edit Lead', content, footer);
-        document.body.appendChild(modal);
-    },
-
-    async submitEditLead(leadId) {
-        const form = document.getElementById('editLeadForm');
-        if (!this.validateForm(form)) return;
-
-        const data = this.getFormData(form);
-
-        try {
-            if (AirtableAPI.isConfigured()) {
-                await AirtableAPI.updateLead(leadId, data);
-                this.showToast('Lead updated successfully!', 'success');
-            } else {
-                const lead = AppState.data.leads.find(l => l.id === leadId);
-                Object.assign(lead, data);
-            }
-
-            await loadCompanyData(AppState.selectedCompany);
-            render();
-            document.querySelector('.modal-overlay').remove();
-        } catch (error) {
-            console.error('Error updating lead:', error);
-            this.showToast('Failed to update lead. Please try again.', 'error');
-        }
-    },
-
-    deleteLead(leadId) {
-        this.showConfirmDialog(
-            'Delete Lead',
-            'Are you sure you want to delete this lead? This action cannot be undone.',
-            async () => {
-                try {
-                    if (AirtableAPI.isConfigured()) {
-                        await AirtableAPI.deleteLead(leadId);
-                        this.showToast('Lead deleted successfully!', 'success');
-                    } else {
-                        AppState.data.leads = AppState.data.leads.filter(l => l.id !== leadId);
-                    }
-
-                    await loadCompanyData(AppState.selectedCompany);
-                    render();
-                    document.querySelector('.modal-overlay')?.remove();
-                } catch (error) {
-                    console.error('Error deleting lead:', error);
-                    this.showToast('Failed to delete lead. Please try again.', 'error');
-                }
-            }
-        );
-    },
-
-    // ========================================
-    // GENERAL TASK CRUD OPERATIONS
-    // ========================================
-
-    showAddTaskForm() {
-        const users = AppState.data.users.filter(u => 
-            u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
-        );
-        
-        const content = `
-            <form id="addTaskForm">
-                <div class="form-group">
-                    <label class="form-label required">Task Name</label>
-                    <input type="text" name="name" class="form-input" placeholder="Enter task name" required>
-                    <div class="form-error">Task name is required</div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Due Date</label>
-                    <input type="date" name="dueDate" class="form-input">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Priority</label>
-                    <select name="priority" class="form-select" required>
-                        <option value="High">High</option>
-                        <option value="Medium" selected>Medium</option>
-                        <option value="Low">Low</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Status</label>
-                    <select name="status" class="form-select" required>
-                        <option value="Pending" selected>Pending</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Completed">Completed</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Assigned User</label>
-                    <select name="assignedUser" class="form-select">
-                        <option value="">Unassigned</option>
-                        ${users.map(user => `<option value="${user.id}">${user.name}</option>`).join('')}
-                    </select>
-                </div>
-            </form>
-        `;
-
-        const footer = `
-            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-            <button class="btn btn-primary" onclick="CRUDManager.submitAddTask()">Create Task</button>
-        `;
-
-        const modal = this.createModal('Add New Task', content, footer);
-        document.body.appendChild(modal);
-    },
-
-    async submitAddTask() {
-        const form = document.getElementById('addTaskForm');
-        if (!this.validateForm(form)) return;
-
-        const data = this.getFormData(form);
-        data.company = AppState.selectedCompany;
-
-        try {
-            if (AirtableAPI.isConfigured()) {
-                await AirtableAPI.addGeneralTodo(data);
-                this.showToast('Task created successfully!', 'success');
-            } else {
-                AppState.data.generalTodos.push({
-                    id: Date.now().toString(),
-                    ...data
-                });
-            }
-
-            await loadCompanyData(AppState.selectedCompany);
-            render();
-            document.querySelector('.modal-overlay').remove();
-        } catch (error) {
-            console.error('Error creating task:', error);
-            this.showToast('Failed to create task. Please try again.', 'error');
-        }
-    },
-
-    showEditTaskForm(taskId) {
-        const task = AppState.data.generalTodos.find(t => t.id === taskId);
-        if (!task) return;
-
-        const users = AppState.data.users.filter(u => 
-            u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
-        );
-        
-        const content = `
-            <form id="editTaskForm">
-                <div class="form-group">
-                    <label class="form-label required">Task Name</label>
-                    <input type="text" name="name" class="form-input" value="${task.name}" required>
-                    <div class="form-error">Task name is required</div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Due Date</label>
-                    <input type="date" name="dueDate" class="form-input" value="${task.dueDate || ''}">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Priority</label>
-                    <select name="priority" class="form-select" required>
-                        <option value="High" ${task.priority === 'High' ? 'selected' : ''}>High</option>
-                        <option value="Medium" ${task.priority === 'Medium' ? 'selected' : ''}>Medium</option>
-                        <option value="Low" ${task.priority === 'Low' ? 'selected' : ''}>Low</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Status</label>
-                    <select name="status" class="form-select" required>
-                        <option value="Pending" ${task.status === 'Pending' ? 'selected' : ''}>Pending</option>
-                        <option value="In Progress" ${task.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
-                        <option value="Completed" ${task.status === 'Completed' ? 'selected' : ''}>Completed</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Assigned User</label>
-                    <select name="assignedUser" class="form-select">
-                        <option value="">Unassigned</option>
-                        ${users.map(user => `
-                            <option value="${user.id}" ${task.assignedUser === user.id ? 'selected' : ''}>
-                                ${user.name}
-                            </option>
-                        `).join('')}
-                    </select>
-                </div>
-            </form>
-        `;
-
-        const footer = `
-            <button class="btn btn-danger" onclick="CRUDManager.deleteTask('${taskId}')">Delete</button>
-            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-            <button class="btn btn-primary" onclick="CRUDManager.submitEditTask('${taskId}')">Update Task</button>
-        `;
-
-        const modal = this.createModal('Edit Task', content, footer);
-        document.body.appendChild(modal);
-    },
-
-    async submitEditTask(taskId) {
-        const form = document.getElementById('editTaskForm');
-        if (!this.validateForm(form)) return;
-
-        const data = this.getFormData(form);
-
-        try {
-            if (AirtableAPI.isConfigured()) {
-                await AirtableAPI.updateGeneralTodo(taskId, data);
-                this.showToast('Task updated successfully!', 'success');
-            } else {
-                const task = AppState.data.generalTodos.find(t => t.id === taskId);
-                Object.assign(task, data);
-            }
-
-            await loadCompanyData(AppState.selectedCompany);
-            render();
-            document.querySelector('.modal-overlay').remove();
-        } catch (error) {
-            console.error('Error updating task:', error);
-            this.showToast('Failed to update task. Please try again.', 'error');
-        }
-    },
-
-    deleteTask(taskId) {
-        this.showConfirmDialog(
-            'Delete Task',
-            'Are you sure you want to delete this task? This action cannot be undone.',
-            async () => {
-                try {
-                    if (AirtableAPI.isConfigured()) {
-                        await AirtableAPI.deleteGeneralTodo(taskId);
-                        this.showToast('Task deleted successfully!', 'success');
-                    } else {
-                        AppState.data.generalTodos = AppState.data.generalTodos.filter(t => t.id !== taskId);
-                    }
-
-                    await loadCompanyData(AppState.selectedCompany);
-                    render();
-                    document.querySelector('.modal-overlay')?.remove();
-                } catch (error) {
-                    console.error('Error deleting task:', error);
-                    this.showToast('Failed to delete task. Please try again.', 'error');
-                }
-            }
-        );
-    },
-
-    // ========================================
-    // CLIENT TODO CRUD OPERATIONS
-    // ========================================
-
-    showAddClientTodoForm() {
-        const users = AppState.data.users.filter(u => 
-            u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
-        );
-        const clients = AppState.data.clients.filter(c => c.company === AppState.selectedCompany);
-        
-        const content = `
-            <form id="addClientTodoForm">
-                <div class="form-group">
-                    <label class="form-label required">Task Name</label>
-                    <input type="text" name="name" class="form-input" placeholder="Enter task name" required>
-                    <div class="form-error">Task name is required</div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Client</label>
-                    <select name="client" class="form-select" required>
-                        <option value="">Select Client</option>
-                        ${clients.map(client => `<option value="${client.id}">${client.name}</option>`).join('')}
-                    </select>
-                    <div class="form-error">Client selection is required</div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Due Date</label>
-                    <input type="date" name="dueDate" class="form-input">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Priority</label>
-                    <select name="priority" class="form-select" required>
-                        <option value="High">High</option>
-                        <option value="Medium" selected>Medium</option>
-                        <option value="Low">Low</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Status</label>
-                    <select name="status" class="form-select" required>
-                        <option value="Pending" selected>Pending</option>
-                        <option value="In Progress">In Progress</option>
-                        <option value="Completed">Completed</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Assigned User</label>
-                    <select name="assignedUser" class="form-select">
-                        <option value="">Unassigned</option>
-                        ${users.map(user => `<option value="${user.id}">${user.name}</option>`).join('')}
-                    </select>
-                </div>
-            </form>
-        `;
-
-        const footer = `
-            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-            <button class="btn btn-primary" onclick="CRUDManager.submitAddClientTodo()">Create Task</button>
-        `;
-
-        const modal = this.createModal('Add New Client Task', content, footer);
-        document.body.appendChild(modal);
-    },
-
-    async submitAddClientTodo() {
-        const form = document.getElementById('addClientTodoForm');
-        if (!this.validateForm(form)) return;
-
-        const data = this.getFormData(form);
-        data.company = AppState.selectedCompany;
-
-        try {
-            if (AirtableAPI.isConfigured()) {
-                await AirtableAPI.addClientTodo(data);
-                this.showToast('Client task created successfully!', 'success');
-            } else {
-                if (!AppState.data.clientTodos) AppState.data.clientTodos = [];
-                AppState.data.clientTodos.push({
-                    id: 'demo-ctodo-' + Date.now().toString(),
-                    ...data
-                });
-                this.showToast('Client task created (Demo Mode)', 'success');
-            }
-
-            await loadCompanyData(AppState.selectedCompany);
-            render();
-            document.querySelector('.modal-overlay').remove();
-            
-        } catch (error) {
-            console.error('Error creating client task:', error);
-            this.showToast('Failed to create client task: ' + error.message, 'error');
-        }
-    },
-
-    showEditClientTodoForm(todoId) {
-        const todo = AppState.data.clientTodos.find(t => t.id === todoId);
-        if (!todo) {
-            this.showToast('Client task not found', 'error');
-            return;
-        }
-
-        const users = AppState.data.users.filter(u => 
-            u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
-        );
-        const clients = AppState.data.clients.filter(c => c.company === AppState.selectedCompany);
-        
-        const content = `
-            <form id="editClientTodoForm">
-                <div class="form-group">
-                    <label class="form-label required">Task Name</label>
-                    <input type="text" name="name" class="form-input" value="${todo.name}" required>
-                    <div class="form-error">Task name is required</div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Client</label>
-                    <select name="client" class="form-select" required>
-                        ${clients.map(client => `
-                            <option value="${client.id}" ${todo.client === client.id ? 'selected' : ''}>
-                                ${client.name}
-                            </option>
-                        `).join('')}
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Due Date</label>
-                    <input type="date" name="dueDate" class="form-input" value="${todo.dueDate || ''}">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Priority</label>
-                    <select name="priority" class="form-select" required>
-                        <option value="High" ${todo.priority === 'High' ? 'selected' : ''}>High</option>
-                        <option value="Medium" ${todo.priority === 'Medium' ? 'selected' : ''}>Medium</option>
-                        <option value="Low" ${todo.priority === 'Low' ? 'selected' : ''}>Low</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Status</label>
-                    <select name="status" class="form-select" required>
-                        <option value="Pending" ${todo.status === 'Pending' ? 'selected' : ''}>Pending</option>
-                        <option value="In Progress" ${todo.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
-                        <option value="Completed" ${todo.status === 'Completed' ? 'selected' : ''}>Completed</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Assigned User</label>
-                    <select name="assignedUser" class="form-select">
-                        <option value="">Unassigned</option>
-                        ${users.map(user => `
-                            <option value="${user.id}" ${todo.assignedUser === user.id ? 'selected' : ''}>
-                                ${user.name}
-                            </option>
-                        `).join('')}
-                    </select>
-                </div>
-            </form>
-        `;
-
-        const footer = `
-            <button class="btn btn-danger" onclick="CRUDManager.deleteClientTodo('${todoId}')">Delete</button>
-            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-            <button class="btn btn-primary" onclick="CRUDManager.submitEditClientTodo('${todoId}')">Update Task</button>
-        `;
-
-        const modal = this.createModal('Edit Client Task', content, footer);
-        document.body.appendChild(modal);
-    },
-
-    async submitEditClientTodo(todoId) {
-        const form = document.getElementById('editClientTodoForm');
-        if (!this.validateForm(form)) return;
-
-        const data = this.getFormData(form);
-
-        try {
-            if (AirtableAPI.isConfigured()) {
-                await AirtableAPI.updateClientTodo(todoId, data);
-                this.showToast('Client task updated successfully!', 'success');
-            } else {
-                const todo = AppState.data.clientTodos.find(t => t.id === todoId);
-                if (todo) {
-                    Object.assign(todo, data);
-                }
-                this.showToast('Client task updated (Demo Mode)', 'success');
-            }
-
-            await loadCompanyData(AppState.selectedCompany);
-            render();
-            document.querySelector('.modal-overlay').remove();
-            
-        } catch (error) {
-            console.error('Error updating client task:', error);
-            this.showToast('Failed to update client task: ' + error.message, 'error');
-        }
-    },
-
-    deleteClientTodo(todoId) {
-        this.showConfirmDialog(
-            'Delete Client Task',
-            'Are you sure you want to delete this client task? This action cannot be undone.',
-            async () => {
-                try {
-                    if (AirtableAPI.isConfigured()) {
-                        await AirtableAPI.deleteClientTodo(todoId);
-                        this.showToast('Client task deleted successfully!', 'success');
-                    } else {
-                        AppState.data.clientTodos = AppState.data.clientTodos.filter(t => t.id !== todoId);
-                        this.showToast('Client task deleted (Demo Mode)', 'success');
-                    }
-
-                    await loadCompanyData(AppState.selectedCompany);
-                    render();
-                    document.querySelector('.modal-overlay')?.remove();
-                    
-                } catch (error) {
-                    console.error('Error deleting client task:', error);
-                    this.showToast('Failed to delete client task: ' + error.message, 'error');
-                }
-            }
-        );
     }
 };
 
 console.log('✅ CRUD Manager loaded - All operations ready');
-
-// ========================================
-// FIXED CLIENT CRUD OPERATIONS
-// Add this to your js/crud.js file
-// ========================================
-
-// Replace the existing client CRUD functions with these improved versions
-
-const ClientCRUD = {
-    showAddClientForm() {
-        const users = AppState.data.users.filter(u => 
-            u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
-        );
-        
-        const content = `
-            <form id="addClientForm">
-                <div class="form-group">
-                    <label class="form-label required">Client Name</label>
-                    <input type="text" name="name" class="form-input" placeholder="Enter client name" required>
-                    <div class="form-error">Client name is required</div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Email</label>
-                    <input type="email" name="email" class="form-input" placeholder="client@example.com">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Phone</label>
-                    <input type="tel" name="phone" class="form-input" placeholder="+1 (555) 000-0000">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Lead Type</label>
-                    <input type="text" name="leadType" class="form-input" placeholder="e.g., Referral, Online, Event">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Status</label>
-                    <select name="status" class="form-select" required>
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                        <option value="On Hold">On Hold</option>
-                        <option value="VIP">VIP</option>
-                        <option value="Churned">Churned</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Priority</label>
-                    <select name="priority" class="form-select">
-                        <option value="">None</option>
-                        <option value="High">High</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Low">Low</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Assigned User</label>
-                    <select name="assignedUser" class="form-select">
-                        <option value="">Unassigned</option>
-                        ${users.map(user => `<option value="${user.id}">${user.name}</option>`).join('')}
-                    </select>
-                </div>
-            </form>
-        `;
-
-        const footer = `
-            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-            <button class="btn btn-primary" onclick="ClientCRUD.submitAddClient()">Create Client</button>
-        `;
-
-        const modal = CRUDManager.createModal('Add New Client', content, footer);
-        document.body.appendChild(modal);
-    },
-
-    async submitAddClient() {
-        const form = document.getElementById('addClientForm');
-        if (!CRUDManager.validateForm(form)) return;
-
-        const data = CRUDManager.getFormData(form);
-        data.company = AppState.selectedCompany;
-
-        try {
-            if (AirtableAPI.isConfigured()) {
-                await AirtableAPI.addClient(data);
-                CRUDManager.showToast('✅ Client created successfully!', 'success');
-            } else {
-                // Demo mode
-                AppState.data.clients.push({
-                    id: 'demo-client-' + Date.now().toString(),
-                    ...data,
-                    dealValue: 0,
-                    rating: 0
-                });
-                CRUDManager.showToast('✅ Client created (demo mode)', 'success');
-            }
-
-            await loadCompanyData(AppState.selectedCompany);
-            render();
-            document.querySelector('.modal-overlay').remove();
-        } catch (error) {
-            console.error('Error creating client:', error);
-            CRUDManager.showToast(`❌ Failed to create client: ${error.message}`, 'error');
-        }
-    },
-
-    showEditClientForm(clientId) {
-        const client = AppState.data.clients.find(c => c.id === clientId);
-        if (!client) {
-            CRUDManager.showToast('❌ Client not found', 'error');
-            return;
-        }
-
-        const users = AppState.data.users.filter(u => 
-            u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
-        );
-        
-        const content = `
-            <form id="editClientForm">
-                <div class="form-group">
-                    <label class="form-label required">Client Name</label>
-                    <input type="text" name="name" class="form-input" value="${client.name || ''}" required>
-                    <div class="form-error">Client name is required</div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Email</label>
-                    <input type="email" name="email" class="form-input" value="${client.email || ''}">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Phone</label>
-                    <input type="tel" name="phone" class="form-input" value="${client.phone || ''}">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Lead Type</label>
-                    <input type="text" name="leadType" class="form-input" value="${client.leadType || ''}">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Status</label>
-                    <select name="status" class="form-select" required>
-                        <option value="Active" ${client.status === 'Active' ? 'selected' : ''}>Active</option>
-                        <option value="Inactive" ${client.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
-                        <option value="On Hold" ${client.status === 'On Hold' ? 'selected' : ''}>On Hold</option>
-                        <option value="VIP" ${client.status === 'VIP' ? 'selected' : ''}>VIP</option>
-                        <option value="Churned" ${client.status === 'Churned' ? 'selected' : ''}>Churned</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Priority</label>
-                    <select name="priority" class="form-select">
-                        <option value="">None</option>
-                        <option value="High" ${client.priority === 'High' ? 'selected' : ''}>High</option>
-                        <option value="Medium" ${client.priority === 'Medium' ? 'selected' : ''}>Medium</option>
-                        <option value="Low" ${client.priority === 'Low' ? 'selected' : ''}>Low</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Assigned User</label>
-                    <select name="assignedUser" class="form-select">
-                        <option value="">Unassigned</option>
-                        ${users.map(user => `
-                            <option value="${user.id}" ${client.assignedUser === user.id ? 'selected' : ''}>
-                                ${user.name}
-                            </option>
-                        `).join('')}
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Address</label>
-                    <textarea name="address" class="form-textarea" placeholder="Client address">${client.address || ''}</textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Notes</label>
-                    <textarea name="notes" class="form-textarea" placeholder="Additional notes">${client.notes || ''}</textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Deal Value ($)</label>
-                    <input type="number" name="dealValue" class="form-input" value="${client.dealValue || 0}" min="0" step="100">
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Rating (1-5)</label>
-                    <select name="rating" class="form-select">
-                        <option value="0" ${!client.rating || client.rating === 0 ? 'selected' : ''}>Not Rated</option>
-                        <option value="1" ${client.rating === 1 ? 'selected' : ''}>⭐ 1 Star</option>
-                        <option value="2" ${client.rating === 2 ? 'selected' : ''}>⭐⭐ 2 Stars</option>
-                        <option value="3" ${client.rating === 3 ? 'selected' : ''}>⭐⭐⭐ 3 Stars</option>
-                        <option value="4" ${client.rating === 4 ? 'selected' : ''}>⭐⭐⭐⭐ 4 Stars</option>
-                        <option value="5" ${client.rating === 5 ? 'selected' : ''}>⭐⭐⭐⭐⭐ 5 Stars</option>
-                    </select>
-                </div>
-            </form>
-        `;
-
-        const footer = `
-            <button class="btn btn-danger" onclick="ClientCRUD.deleteClient('${clientId}')">🗑️ Delete</button>
-            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-            <button class="btn btn-primary" onclick="ClientCRUD.submitEditClient('${clientId}')">💾 Update Client</button>
-        `;
-
-        const modal = CRUDManager.createModal('Edit Client', content, footer);
-        document.body.appendChild(modal);
-    },
-
-    async submitEditClient(clientId) {
-        const form = document.getElementById('editClientForm');
-        if (!CRUDManager.validateForm(form)) return;
-
-        const rawData = CRUDManager.getFormData(form);
-        
-        // Clean and prepare data
-        const data = {
-            name: rawData.name,
-            email: rawData.email || '',
-            phone: rawData.phone || '',
-            status: rawData.status,
-            assignedUser: rawData.assignedUser || null,
-            leadType: rawData.leadType || '',
-            priority: rawData.priority || '',
-            address: rawData.address || '',
-            notes: rawData.notes || '',
-            dealValue: parseFloat(rawData.dealValue) || 0,
-            rating: parseInt(rawData.rating) || 0
-        };
-
-        console.log('Updating client with data:', data);
-
-        try {
-            if (AirtableAPI.isConfigured()) {
-                // Update in Airtable
-                const result = await AirtableAPI.updateClient(clientId, data);
-                console.log('Airtable update result:', result);
-                CRUDManager.showToast('✅ Client updated successfully!', 'success');
-            } else {
-                // Demo mode - update in memory
-                const clientIndex = AppState.data.clients.findIndex(c => c.id === clientId);
-                if (clientIndex !== -1) {
-                    AppState.data.clients[clientIndex] = {
-                        ...AppState.data.clients[clientIndex],
-                        ...data
-                    };
-                }
-                CRUDManager.showToast('✅ Client updated (demo mode)', 'success');
-            }
-
-            // Reload data and refresh UI
-            await loadCompanyData(AppState.selectedCompany);
-            render();
-            document.querySelector('.modal-overlay').remove();
-            
-        } catch (error) {
-            console.error('Error updating client:', error);
-            
-            // More detailed error message
-            let errorMsg = 'Failed to update client';
-            if (error.message) {
-                errorMsg += ': ' + error.message;
-            }
-            
-            CRUDManager.showToast(`❌ ${errorMsg}`, 'error');
-        }
-    },
-
-    deleteClient(clientId) {
-        CRUDManager.showConfirmDialog(
-            '🗑️ Delete Client',
-            'Are you sure you want to delete this client? This action cannot be undone.',
-            async () => {
-                try {
-                    if (AirtableAPI.isConfigured()) {
-                        await AirtableAPI.deleteClient(clientId);
-                        CRUDManager.showToast('✅ Client deleted successfully!', 'success');
-                    } else {
-                        AppState.data.clients = AppState.data.clients.filter(c => c.id !== clientId);
-                        CRUDManager.showToast('✅ Client deleted (demo mode)', 'success');
-                    }
-
-                    await loadCompanyData(AppState.selectedCompany);
-                    render();
-                    document.querySelector('.modal-overlay')?.remove();
-                } catch (error) {
-                    console.error('Error deleting client:', error);
-                    CRUDManager.showToast(`❌ Failed to delete client: ${error.message}`, 'error');
-                }
-            }
-        );
-    }
-};
-
-// Add ClientCRUD to CRUDManager
-CRUDManager.showAddClientForm = ClientCRUD.showAddClientForm;
-CRUDManager.showEditClientForm = ClientCRUD.showEditClientForm;
-CRUDManager.submitAddClient = ClientCRUD.submitAddClient;
-CRUDManager.submitEditClient = ClientCRUD.submitEditClient;
-CRUDManager.deleteClient = ClientCRUD.deleteClient;
-
-console.log('✅ Fixed Client CRUD Operations loaded');
+console.log('📸 Photo upload enabled for Companies and Users');

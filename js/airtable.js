@@ -175,24 +175,56 @@ const AirtableAPI = {
     // COMPANIES
     // ========================================
     
-    async getCompanies(pageSize = 100, offset = null) {
-        const result = await this.fetchFromAirtable(
-            AIRTABLE_CONFIG.TABLES.COMPANIES,
-            '',
-            ['CompanyName'],
-            pageSize,
-            offset
-        );
-        
-        return {
-            records: result.records.map(record => ({
-                id: record.id,
-                name: record.CompanyName || 'Unnamed Company',
-                color: this.generateColor(record.id)
-            })),
-            offset: result.offset
-        };
-    },
+    aasync getCompanies(pageSize = 100, offset = null) {
+    const result = await this.fetchFromAirtable(
+        AIRTABLE_CONFIG.TABLES.COMPANIES,
+        '',
+        ['CompanyName', 'Photo'],
+        pageSize,
+        offset
+    );
+    
+    return {
+        records: result.records.map(record => ({
+            id: record.id,
+            name: record.CompanyName || 'Unnamed Company',
+            photo: record.Photo || '',
+            color: this.generateColor(record.id)
+        })),
+        offset: result.offset
+    };
+},
+
+async addCompany(data) {
+    const fields = {
+        CompanyName: data.name,
+        Photo: data.photo || ''
+    };
+    
+    const record = await this.createRecord(AIRTABLE_CONFIG.TABLES.COMPANIES, fields);
+    
+    return {
+        id: record.id,
+        name: record.CompanyName,
+        photo: record.Photo || '',
+        color: this.generateColor(record.id)
+    };
+},
+
+async updateCompany(id, data) {
+    const fields = {};
+    if (data.name) fields.CompanyName = data.name;
+    if (data.photo !== undefined) fields.Photo = data.photo;
+    
+    const record = await this.updateRecord(AIRTABLE_CONFIG.TABLES.COMPANIES, id, fields);
+    
+    return {
+        id: record.id,
+        name: record.CompanyName,
+        photo: record.Photo || '',
+        color: this.generateColor(record.id)
+    };
+},
 
     async addCompany(data) {
         const fields = {
