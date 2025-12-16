@@ -6,6 +6,95 @@ function sanitizeInput(str) {
 // Complete CRUD.js file - Replace your js/crud.js with this
 // ========================================
 
+// ========================================
+// CRUD PERMISSION VALIDATORS
+// ========================================
+
+/**
+ * Validate if user can perform CRUD operation
+ * @param {string} resource - 'companies', 'users', 'clients', 'leads', 'tasks'
+ * @param {string} operation - 'create', 'update', 'delete'
+ * @param {object} record - The record being operated on (for update/delete)
+ * @returns {object} { allowed: boolean, reason: string }
+ */
+function validateCRUDPermission(resource, operation, record = null) {
+    if (!AuthManager || !AuthManager.currentUser) {
+        return { 
+            allowed: false, 
+            reason: 'Not authenticated. Please log in.' 
+        };
+    }
+    
+    // Check basic permission
+    const hasPermission = AuthManager.hasDetailedPermission(resource, operation);
+    
+    if (!hasPermission) {
+        return { 
+            allowed: false, 
+            reason: `Your role (${AuthManager.currentUser.role}) cannot ${operation} ${resource}.` 
+        };
+    }
+    
+    // For update/delete, check if user can edit THIS specific record
+    if ((operation === 'update' || operation === 'delete') && record) {
+        const canEdit = AuthManager.canEditRecord(resource, record);
+        
+        if (!canEdit) {
+            return {
+                allowed: false,
+                reason: `You can only ${operation} ${resource} assigned to you.`
+            };
+        }
+    }
+    
+    // Extra check: Only admins can delete
+    if (operation === 'delete') {
+        const canDelete = AuthManager.canDeleteRecord(resource, record);
+        
+        if (!canDelete) {
+            return {
+                allowed: false,
+                reason: 'Only Admins can delete records. Contact your administrator.'
+            };
+        }
+    }
+    
+    return { allowed: true, reason: '' };
+}
+
+/**
+ * Show permission error with consistent formatting
+ * @param {string} operation - What they tried to do
+ * @param {string} reason - Why it was blocked
+ */
+function showPermissionError(operation, reason) {
+    if (typeof CRUDManager !== 'undefined') {
+        CRUDManager.showToast(`❌ ${operation} blocked: ${reason}`, 'error');
+    } else {
+        alert(`${operation} blocked: ${reason}`);
+    }
+    
+    // Log for debugging
+    console.warn(`CRUD Permission Denied: ${operation} - ${reason}`);
+}
+
+/**
+ * Pre-flight check before showing form
+ * @param {string} resource 
+ * @param {string} operation 
+ * @returns {boolean} True if allowed to show form
+ */
+function canShowForm(resource, operation) {
+    const validation = validateCRUDPermission(resource, operation);
+    
+    if (!validation.allowed) {
+        showPermissionError(`${operation} ${resource}`, validation.reason);
+        return false;
+    }
+    
+    return true;
+}
+
 const CRUDManager = {
     
     showToast(message, type = 'success') {
@@ -170,150 +259,231 @@ const CRUDManager = {
     },
 
     // COMPANY OPERATIONS
-    showAddCompanyForm() {
-        const content = `
-            <form id="addCompanyForm">
-                <div class="form-group">
-                    <label class="form-label">Company Logo</label>
-                    <div class="mb-3">
-                        <div id="companyPhotoPreview" class="w-32 h-32 mx-auto mb-3 rounded-full overflow-hidden bg-white bg-opacity-10 flex items-center justify-center">
-                            <span class="text-6xl">🏢</span>
-                        </div>
-                        <input type="file" id="companyPhotoInput" accept="image/*" class="form-input"
-                               onchange="CRUDManager.handlePhotoUpload('companyPhotoPreview', 'companyPhotoData', this)">
-                        <input type="hidden" id="companyPhotoData" name="photo">
+   // COMPANY OPERATIONS WITH PERMISSION CHECKS
+showAddCompanyForm() {
+    // PRE-FLIGHT CHECK: Can user create companies?
+    if (!canShowForm('companies', 'create')) {
+        return; // Error already shown by canShowForm()
+    }
+    
+    const content = `
+        <form id="addCompanyForm">
+            <div class="form-group">
+                <label class="form-label">Company Logo</label>
+                <div class="mb-3">
+                    <div id="companyPhotoPreview" class="w-32 h-32 mx-auto mb-3 rounded-full overflow-hidden bg-white bg-opacity-10 flex items-center justify-center">
+                        <span class="text-6xl">🏢</span>
                     </div>
+                    <input type="file" id="companyPhotoInput" accept="image/*" class="form-input"
+                           onchange="CRUDManager.handlePhotoUpload('companyPhotoPreview', 'companyPhotoData', this)">
+                    <input type="hidden" id="companyPhotoData" name="photo">
                 </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Company Name</label>
-                    <input type="text" name="name" class="form-input" placeholder="Enter company name" required>
-                    <div class="form-error">Company name is required</div>
-                </div>
-            </form>
-        `;
-
-        const footer = `
-            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-            <button class="btn btn-primary" onclick="CRUDManager.submitAddCompany()">Create Company</button>
-        `;
-
-        const modal = this.createModal('Add New Company', content, footer);
-        document.body.appendChild(modal);
-    },
-
-    async submitAddCompany() {
-        const form = document.getElementById('addCompanyForm');
-        if (!this.validateForm(form)) return;
-
-        const data = this.getFormData(form);
-
-        try {
-            let newCompany = null;
+            </div>
             
-            if (AirtableAPI.isConfigured()) {
-                newCompany = await AirtableAPI.addCompany(data);
-                this.showToast('Company created successfully!', 'success');
-            } else {
-                const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7B731'];
-                newCompany = {
-                    id: 'demo-' + Date.now().toString(),
-                    name: data.name,
-                    photo: data.photo || '',
-                    color: colors[Math.floor(Math.random() * colors.length)]
-                };
-                this.showToast('Company created (Demo)', 'success');
-            }
-            
-            AppState.data.companies.push(newCompany);
-            document.querySelector('.modal-overlay').remove();
-            render();
-            
-        } catch (error) {
-            console.error('Error creating company:', error);
-            this.showToast('Failed to create company', 'error');
+            <div class="form-group">
+                <label class="form-label required">Company Name</label>
+                <input type="text" name="name" class="form-input" placeholder="Enter company name" required>
+                <div class="form-error">Company name is required</div>
+            </div>
+        </form>
+    `;
+
+    const footer = `
+        <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+        <button class="btn btn-primary" onclick="CRUDManager.submitAddCompany()">Create Company</button>
+    `;
+
+    const modal = this.createModal('Add New Company', content, footer);
+    document.body.appendChild(modal);
+},
+const validation = validateCRUDPermission('leads', 'create');
+if (!validation.allowed) {
+    showPermissionError('Create lead', validation.reason);
+    return;
+}
+async submitAddCompany() {
+    // PERMISSION CHECK before processing
+    const validation = validateCRUDPermission('companies', 'create');
+    if (!validation.allowed) {
+        showPermissionError('Create company', validation.reason);
+        return;
+    }
+    
+    const form = document.getElementById('addCompanyForm');
+    if (!this.validateForm(form)) return;
+
+    const data = this.getFormData(form);
+
+    try {
+        let newCompany = null;
+        
+        if (AirtableAPI.isConfigured()) {
+            newCompany = await AirtableAPI.addCompany(data);
+            this.showToast('✅ Company created successfully!', 'success');
+        } else {
+            const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7B731'];
+            newCompany = {
+                id: 'demo-' + Date.now().toString(),
+                name: data.name,
+                photo: data.photo || '',
+                color: colors[Math.floor(Math.random() * colors.length)]
+            };
+            this.showToast('✅ Company created (Demo)', 'success');
         }
-    },
+        
+        AppState.data.companies.push(newCompany);
+        
+        // Log activity
+        if (AuthManager) {
+            AuthManager.logActivity('create', `Created company: ${data.name}`);
+        }
+        
+        document.querySelector('.modal-overlay').remove();
+        render();
+        
+    } catch (error) {
+        console.error('Error creating company:', error);
+        this.showToast('❌ Failed to create company', 'error');
+    }
+},
 
-    showEditCompanyForm(companyId) {
-        const company = AppState.data.companies.find(c => c.id === companyId);
-        if (!company) return this.showToast('Company not found', 'error');
+showEditCompanyForm(companyId) {
+    const company = AppState.data.companies.find(c => c.id === companyId);
+    if (!company) return this.showToast('❌ Company not found', 'error');
 
-        const content = `
-            <form id="editCompanyForm">
-                <div class="form-group">
-                    <label class="form-label">Company Logo</label>
-                    <div class="mb-3">
-                        <div id="companyPhotoPreview" class="w-32 h-32 mx-auto mb-3 rounded-full overflow-hidden bg-white bg-opacity-10 flex items-center justify-center">
-                            ${company.photo ? `<img src="${company.photo}" alt="${company.name}" class="w-full h-full object-cover">` : '<span class="text-6xl">🏢</span>'}
-                        </div>
-                        <input type="file" id="companyPhotoInput" accept="image/*" class="form-input"
-                               onchange="CRUDManager.handlePhotoUpload('companyPhotoPreview', 'companyPhotoData', this)">
-                        <input type="hidden" id="companyPhotoData" name="photo" value="${company.photo || ''}">
+    // PRE-FLIGHT CHECK: Can user edit companies?
+    const validation = validateCRUDPermission('companies', 'update', company);
+    if (!validation.allowed) {
+        showPermissionError('Edit company', validation.reason);
+        return;
+    }
+
+    const content = `
+        <form id="editCompanyForm">
+            <div class="form-group">
+                <label class="form-label">Company Logo</label>
+                <div class="mb-3">
+                    <div id="companyPhotoPreview" class="w-32 h-32 mx-auto mb-3 rounded-full overflow-hidden bg-white bg-opacity-10 flex items-center justify-center">
+                        ${company.photo ? `<img src="${company.photo}" alt="${company.name}" class="w-full h-full object-cover">` : '<span class="text-6xl">🏢</span>'}
                     </div>
+                    <input type="file" id="companyPhotoInput" accept="image/*" class="form-input"
+                           onchange="CRUDManager.handlePhotoUpload('companyPhotoPreview', 'companyPhotoData', this)">
+                    <input type="hidden" id="companyPhotoData" name="photo" value="${company.photo || ''}">
                 </div>
-                
-                <div class="form-group">
-                    <label class="form-label required">Company Name</label>
-                    <input type="text" name="name" class="form-input" value="${company.name}" required>
-                    <div class="form-error">Company name is required</div>
-                </div>
-            </form>
-        `;
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label required">Company Name</label>
+                <input type="text" name="name" class="form-input" value="${company.name}" required>
+                <div class="form-error">Company name is required</div>
+            </div>
+        </form>
+    `;
 
-        const footer = `
-            <button class="btn btn-danger" onclick="CRUDManager.deleteCompany('${companyId}')">Delete</button>
-            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-            <button class="btn btn-primary" onclick="CRUDManager.submitEditCompany('${companyId}')">Update</button>
-        `;
+    // Only show delete button if user has permission
+    const canDelete = can(AppState.currentUser.role, 'companies', 'manage');
 
-        const modal = this.createModal('Edit Company', content, footer);
-        document.body.appendChild(modal);
-    },
+    const footer = `
+  ${canDelete ? `
+    <button class="btn btn-danger" onclick="CRUDManager.deleteCompany('${companyId}')">Delete</button>
+  ` : ''}
+  <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+  <button class="btn btn-primary" onclick="CRUDManager.submitEditCompany('${companyId}')">Update</button>
+`;
 
-    async submitEditCompany(companyId) {
-        const form = document.getElementById('editCompanyForm');
-        if (!this.validateForm(form)) return;
-        const data = this.getFormData(form);
 
-        try {
-            if (AirtableAPI.isConfigured()) {
-                await AirtableAPI.updateCompany(companyId, data);
-            } else {
-                const company = AppState.data.companies.find(c => c.id === companyId);
-                if (company) {
-                    company.name = data.name;
-                    company.photo = data.photo;
-                }
+    const modal = this.createModal('Edit Company', content, footer);
+    document.body.appendChild(modal);
+},
+const validation = validateCRUDPermission('leads', 'update', lead);
+if (!validation.allowed) {
+    showPermissionError('Update lead', validation.reason);
+    return;
+}
+async submitEditCompany(companyId) {
+    const company = AppState.data.companies.find(c => c.id === companyId);
+    if (!company) return;
+    
+    // PERMISSION CHECK before processing
+    const validation = validateCRUDPermission('companies', 'update', company);
+    if (!validation.allowed) {
+        showPermissionError('Update company', validation.reason);
+        return;
+    }
+    
+    const form = document.getElementById('editCompanyForm');
+    if (!this.validateForm(form)) return;
+    const data = this.getFormData(form);
+
+    try {
+        if (AirtableAPI.isConfigured()) {
+            await AirtableAPI.updateCompany(companyId, data);
+        } else {
+            const company = AppState.data.companies.find(c => c.id === companyId);
+            if (company) {
+                company.name = data.name;
+                company.photo = data.photo;
             }
-            this.showToast('Company updated!', 'success');
-            await loadCompanies();
-            render();
-            document.querySelector('.modal-overlay').remove();
-        } catch (error) {
-            this.showToast('Failed to update company', 'error');
         }
-    },
-
-    deleteCompany(companyId) {
-        this.showConfirmDialog('Delete Company', 'Are you sure?', async () => {
+        
+        // Log activity
+        if (AuthManager) {
+            AuthManager.logActivity('update', `Updated company: ${data.name}`);
+        }
+        
+        this.showToast('✅ Company updated!', 'success');
+        await loadCompanies();
+        render();
+        document.querySelector('.modal-overlay').remove();
+    } catch (error) {
+        this.showToast('❌ Failed to update company', 'error');
+    }
+},
+const validation = validateCRUDPermission('leads', 'delete', lead);
+if (!validation.allowed) {
+    showPermissionError('Delete lead', validation.reason);
+    return;
+}
+deleteCompany(companyId) {
+    const company = AppState.data.companies.find(c => c.id === companyId);
+    if (!company) return;
+    
+    // PERMISSION CHECK before showing confirmation
+    const validation = validateCRUDPermission('companies', 'delete', company);
+    if (!validation.allowed) {
+        showPermissionError('Delete company', validation.reason);
+        return;
+    }
+    
+    this.showConfirmDialog(
+        '🗑️ Delete Company', 
+        `Are you sure you want to delete "${company.name}"? This action cannot be undone.`, 
+        async () => {
             try {
                 if (AirtableAPI.isConfigured()) {
                     await AirtableAPI.deleteCompany(companyId);
                 } else {
                     AppState.data.companies = AppState.data.companies.filter(c => c.id !== companyId);
                 }
-                this.showToast('Company deleted!', 'success');
+                
+                // Log activity
+                if (AuthManager) {
+                    AuthManager.logActivity('delete', `Deleted company: ${company.name}`);
+                }
+                
+                this.showToast('✅ Company deleted!', 'success');
                 await loadCompanies();
                 render();
                 document.querySelector('.modal-overlay')?.remove();
             } catch (error) {
-                this.showToast('Failed to delete', 'error');
+                this.showToast('❌ Failed to delete', 'error');
             }
-        });
-    },
+        }
+    );
+},
 
     // USER OPERATIONS
+    if (!canShowForm('leads', 'create')) return;  // or 'tasks', 'users'
     showAddUserForm() {
         const companies = AppState.data.companies;
         
@@ -364,7 +534,11 @@ const CRUDManager = {
         const modal = this.createModal('Add New User', content, footer);
         document.body.appendChild(modal);
     },
-
+const validation = validateCRUDPermission('leads', 'create');
+if (!validation.allowed) {
+    showPermissionError('Create lead', validation.reason);
+    return;
+}
     async submitAddUser() {
         const form = document.getElementById('addUserForm');
         if (!this.validateForm(form)) return;
@@ -430,17 +604,26 @@ const CRUDManager = {
                 </div>
             </form>
         `;
+const canDelete = can(AppState.currentUser.role, 'users', 'manage');
 
-        const footer = `
-            <button class="btn btn-danger" onclick="CRUDManager.deleteUser('${userId}')">Delete</button>
-            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-            <button class="btn btn-primary" onclick="CRUDManager.submitEditUser('${userId}')">Update</button>
-        `;
+       const footer = `
+  ${canDelete ? `
+    <button class="btn btn-danger" onclick="CRUDManager.deleteUser('${userId}')">Delete</button>
+  ` : ''}
+  <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+  <button class="btn btn-primary" onclick="CRUDManager.submitEditUser('${userId}')">Update</button>
+`;
+
+
 
         const modal = this.createModal('Edit User', content, footer);
         document.body.appendChild(modal);
     },
-
+const validation = validateCRUDPermission('leads', 'update', lead);
+if (!validation.allowed) {
+    showPermissionError('Update lead', validation.reason);
+    return;
+}
     async submitEditUser(userId) {
         const form = document.getElementById('editUserForm');
         if (!this.validateForm(form)) return;
@@ -463,7 +646,11 @@ const CRUDManager = {
             this.showToast('Failed to update', 'error');
         }
     },
-
+const validation = validateCRUDPermission('leads', 'delete', lead);
+if (!validation.allowed) {
+    showPermissionError('Delete lead', validation.reason);
+    return;
+}
     deleteUser(userId) {
         this.showConfirmDialog('Delete User', 'Are you sure?', async () => {
             try {
@@ -483,199 +670,279 @@ const CRUDManager = {
     },
 
     // CLIENT OPERATIONS
+    if (!canShowForm('leads', 'create')) return;  // or 'tasks', 'users'
     showAddClientForm() {
-        const users = AppState.data.users.filter(u => 
-            u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
-        );
-        
-        const content = `
-            <form id="addClientForm">
-                <div class="form-group">
-                    <label class="form-label required">Client Name</label>
-                    <input type="text" name="name" class="form-input" required>
-                    <div class="form-error">Client name is required</div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Email</label>
-                    <input type="email" name="email" class="form-input">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Phone</label>
-                    <input type="tel" name="phone" class="form-input">
-                </div>
-                <div class="form-group">
-                    <label class="form-label required">Status</label>
-                    <select name="status" class="form-select" required>
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                        <option value="On Hold">On Hold</option>
-                        <option value="VIP">VIP</option>
-                        <option value="Churned">Churned</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Priority</label>
-                    <select name="priority" class="form-select">
-                        <option value="">Select Priority</option>
-                        <option value="High">High</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Low">Low</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Deal Value ($)</label>
-                    <input type="number" name="dealValue" class="form-input" min="0">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Rating (1-5)</label>
-                    <input type="number" name="rating" class="form-input" min="0" max="5">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Assigned User</label>
-                    <select name="assignedUser" class="form-select">
-                        <option value="">Not Assigned</option>
-                        ${users.map(u => `<option value="${u.id}">${u.name}</option>`).join('')}
-                    </select>
-                </div>
-            </form>
-        `;
+    // PRE-FLIGHT CHECK
+    if (!canShowForm('clients', 'create')) {
+        return;
+    }
+    
+    // Rest of the function stays the same...
+    const users = AppState.data.users.filter(u => 
+        u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
+    );
+    
+    const content = `
+        <form id="addClientForm">
+            <div class="form-group">
+                <label class="form-label required">Client Name</label>
+                <input type="text" name="name" class="form-input" required>
+                <div class="form-error">Client name is required</div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" name="email" class="form-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Phone</label>
+                <input type="tel" name="phone" class="form-input">
+            </div>
+            <div class="form-group">
+                <label class="form-label required">Status</label>
+                <select name="status" class="form-select" required>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                    <option value="On Hold">On Hold</option>
+                    <option value="VIP">VIP</option>
+                    <option value="Churned">Churned</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Priority</label>
+                <select name="priority" class="form-select">
+                    <option value="">Select Priority</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Deal Value ($)</label>
+                <input type="number" name="dealValue" class="form-input" min="0">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Rating (1-5)</label>
+                <input type="number" name="rating" class="form-input" min="0" max="5">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Assigned User</label>
+                <select name="assignedUser" class="form-select">
+                    <option value="">Not Assigned</option>
+                    ${users.map(u => `<option value="${u.id}">${u.name}</option>`).join('')}
+                </select>
+            </div>
+        </form>
+    `;
 
-        const footer = `
-            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-            <button class="btn btn-primary" onclick="CRUDManager.submitAddClient()">Create Client</button>
-        `;
+    const footer = `
+        <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+        <button class="btn btn-primary" onclick="CRUDManager.submitAddClient()">Create Client</button>
+    `;
 
-        const modal = this.createModal('Add New Client', content, footer);
-        document.body.appendChild(modal);
-    },
+    const modal = this.createModal('Add New Client', content, footer);
+    document.body.appendChild(modal);
+},
+const validation = validateCRUDPermission('leads', 'create');
+if (!validation.allowed) {
+    showPermissionError('Create lead', validation.reason);
+    return;
+}
+async submitAddClient() {
+    // PERMISSION CHECK
+    const validation = validateCRUDPermission('clients', 'create');
+    if (!validation.allowed) {
+        showPermissionError('Create client', validation.reason);
+        return;
+    }
+    
+    const form = document.getElementById('addClientForm');
+    if (!this.validateForm(form)) return;
+    const data = this.getFormData(form);
+    data.company = AppState.selectedCompany;
 
-    async submitAddClient() {
-        const form = document.getElementById('addClientForm');
-        if (!this.validateForm(form)) return;
-        const data = this.getFormData(form);
-        data.company = AppState.selectedCompany;
-
-        try {
-            if (AirtableAPI.isConfigured()) {
-                await AirtableAPI.addClient(data);
-            } else {
-                AppState.data.clients.push({id: Date.now().toString(), ...data});
-            }
-            this.showToast('Client created!', 'success');
-            await loadCompanyData(AppState.selectedCompany);
-            render();
-            document.querySelector('.modal-overlay').remove();
-        } catch (error) {
-            this.showToast('Failed to create client', 'error');
+    try {
+        if (AirtableAPI.isConfigured()) {
+            await AirtableAPI.addClient(data);
+        } else {
+            AppState.data.clients.push({id: Date.now().toString(), ...data});
         }
-    },
-
-    showEditClientForm(clientId) {
-        const client = AppState.data.clients.find(c => c.id === clientId);
-        if (!client) return this.showToast('Client not found', 'error');
-        const users = AppState.data.users.filter(u => u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany));
         
-        const content = `
-            <form id="editClientForm">
-                <div class="form-group">
-                    <label class="form-label required">Name</label>
-                    <input type="text" name="name" class="form-input" value="${client.name}" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Email</label>
-                    <input type="email" name="email" class="form-input" value="${client.email || ''}">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Phone</label>
-                    <input type="tel" name="phone" class="form-input" value="${client.phone || ''}">
-                </div>
-                <div class="form-group">
-                    <label class="form-label required">Status</label>
-                    <select name="status" class="form-select" required>
-                        <option value="Active" ${client.status === 'Active' ? 'selected' : ''}>Active</option>
-                        <option value="Inactive" ${client.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
-                        <option value="On Hold" ${client.status === 'On Hold' ? 'selected' : ''}>On Hold</option>
-                        <option value="VIP" ${client.status === 'VIP' ? 'selected' : ''}>VIP</option>
-                        <option value="Churned" ${client.status === 'Churned' ? 'selected' : ''}>Churned</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Priority</label>
-                    <select name="priority" class="form-select">
-                        <option value="">Select</option>
-                        <option value="High" ${client.priority === 'High' ? 'selected' : ''}>High</option>
-                        <option value="Medium" ${client.priority === 'Medium' ? 'selected' : ''}>Medium</option>
-                        <option value="Low" ${client.priority === 'Low' ? 'selected' : ''}>Low</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Deal Value</label>
-                    <input type="number" name="dealValue" class="form-input" value="${client.dealValue || 0}" min="0">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Rating</label>
-                    <input type="number" name="rating" class="form-input" value="${client.rating || 0}" min="0" max="5">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Assigned User</label>
-                    <select name="assignedUser" class="form-select">
-                        <option value="">Not Assigned</option>
-                        ${users.map(u => `<option value="${u.id}" ${client.assignedUser === u.id ? 'selected' : ''}>${u.name}</option>`).join('')}
-                    </select>
-                </div>
-            </form>
-        `;
-
-        const footer = `
-            <button class="btn btn-danger" onclick="CRUDManager.deleteClient('${clientId}')">Delete</button>
-            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-            <button class="btn btn-primary" onclick="CRUDManager.submitEditClient('${clientId}')">Update</button>
-        `;
-
-        const modal = this.createModal('Edit Client', content, footer);
-        document.body.appendChild(modal);
-    },
-
-    async submitEditClient(clientId) {
-        const form = document.getElementById('editClientForm');
-        if (!this.validateForm(form)) return;
-        const data = this.getFormData(form);
-
-        try {
-            if (AirtableAPI.isConfigured()) {
-                await AirtableAPI.updateClient(clientId, data);
-            } else {
-                const client = AppState.data.clients.find(c => c.id === clientId);
-                Object.assign(client, data);
-            }
-            this.showToast('Client updated!', 'success');
-            await loadCompanyData(AppState.selectedCompany);
-            render();
-            document.querySelector('.modal-overlay').remove();
-        } catch (error) {
-            this.showToast('Failed to update', 'error');
+        // Log activity
+        if (AuthManager) {
+            AuthManager.logActivity('create', `Created client: ${data.name}`);
         }
-    },
+        
+        this.showToast('✅ Client created!', 'success');
+        await loadCompanyData(AppState.selectedCompany);
+        render();
+        document.querySelector('.modal-overlay').remove();
+    } catch (error) {
+        this.showToast('❌ Failed to create client', 'error');
+    }
+},
 
-    deleteClient(clientId) {
-        this.showConfirmDialog('Delete Client', 'Are you sure?', async () => {
+showEditClientForm(clientId) {
+    const client = AppState.data.clients.find(c => c.id === clientId);
+    if (!client) return this.showToast('❌ Client not found', 'error');
+    
+    // PRE-FLIGHT CHECK
+    const validation = validateCRUDPermission('clients', 'update', client);
+    if (!validation.allowed) {
+        showPermissionError('Edit client', validation.reason);
+        return;
+    }
+    
+    const users = AppState.data.users.filter(u => u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany));
+    
+    const content = `
+        <form id="editClientForm">
+            <div class="form-group">
+                <label class="form-label required">Name</label>
+                <input type="text" name="name" class="form-input" value="${client.name}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" name="email" class="form-input" value="${client.email || ''}">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Phone</label>
+                <input type="tel" name="phone" class="form-input" value="${client.phone || ''}">
+            </div>
+            <div class="form-group">
+                <label class="form-label required">Status</label>
+                <select name="status" class="form-select" required>
+                    <option value="Active" ${client.status === 'Active' ? 'selected' : ''}>Active</option>
+                    <option value="Inactive" ${client.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                    <option value="On Hold" ${client.status === 'On Hold' ? 'selected' : ''}>On Hold</option>
+                    <option value="VIP" ${client.status === 'VIP' ? 'selected' : ''}>VIP</option>
+                    <option value="Churned" ${client.status === 'Churned' ? 'selected' : ''}>Churned</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Priority</label>
+                <select name="priority" class="form-select">
+                    <option value="">Select</option>
+                    <option value="High" ${client.priority === 'High' ? 'selected' : ''}>High</option>
+                    <option value="Medium" ${client.priority === 'Medium' ? 'selected' : ''}>Medium</option>
+                    <option value="Low" ${client.priority === 'Low' ? 'selected' : ''}>Low</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Deal Value</label>
+                <input type="number" name="dealValue" class="form-input" value="${client.dealValue || 0}" min="0">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Rating</label>
+                <input type="number" name="rating" class="form-input" value="${client.rating || 0}" min="0" max="5">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Assigned User</label>
+                <select name="assignedUser" class="form-select">
+                    <option value="">Not Assigned</option>
+                    ${users.map(u => `<option value="${u.id}" ${client.assignedUser === u.id ? 'selected' : ''}>${u.name}</option>`).join('')}
+                </select>
+            </div>
+        </form>
+    `;
+
+    // Only show delete if user has permission
+    const canDelete = AuthManager.canDeleteRecord('clients', client);
+    
+    const footer = `
+        ${canDelete ? `<button class="btn btn-danger" onclick="CRUDManager.deleteClient('${clientId}')">Delete</button>` : ''}
+        <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+        <button class="btn btn-primary" onclick="CRUDManager.submitEditClient('${clientId}')">Update</button>
+    `;
+
+    const modal = this.createModal('Edit Client', content, footer);
+    document.body.appendChild(modal);
+},
+const validation = validateCRUDPermission('leads', 'update', lead);
+if (!validation.allowed) {
+    showPermissionError('Update lead', validation.reason);
+    return;
+}
+async submitEditClient(clientId) {
+    const client = AppState.data.clients.find(c => c.id === clientId);
+    if (!client) return;
+    
+    // PERMISSION CHECK
+    const validation = validateCRUDPermission('clients', 'update', client);
+    if (!validation.allowed) {
+        showPermissionError('Update client', validation.reason);
+        return;
+    }
+    
+    const form = document.getElementById('editClientForm');
+    if (!this.validateForm(form)) return;
+    const data = this.getFormData(form);
+
+    try {
+        if (AirtableAPI.isConfigured()) {
+            await AirtableAPI.updateClient(clientId, data);
+        } else {
+            const client = AppState.data.clients.find(c => c.id === clientId);
+            Object.assign(client, data);
+        }
+        
+        // Log activity
+        if (AuthManager) {
+            AuthManager.logActivity('update', `Updated client: ${data.name}`);
+        }
+        
+        this.showToast('✅ Client updated!', 'success');
+        await loadCompanyData(AppState.selectedCompany);
+        render();
+        document.querySelector('.modal-overlay').remove();
+    } catch (error) {
+        this.showToast('❌ Failed to update', 'error');
+    }
+},
+const validation = validateCRUDPermission('leads', 'delete', lead);
+if (!validation.allowed) {
+    showPermissionError('Delete lead', validation.reason);
+    return;
+}
+deleteClient(clientId) {
+    const client = AppState.data.clients.find(c => c.id === clientId);
+    if (!client) return;
+    
+    // PERMISSION CHECK
+    const validation = validateCRUDPermission('clients', 'delete', client);
+    if (!validation.allowed) {
+        showPermissionError('Delete client', validation.reason);
+        return;
+    }
+    
+    this.showConfirmDialog(
+        '🗑️ Delete Client', 
+        `Are you sure you want to delete "${client.name}"?`, 
+        async () => {
             try {
                 if (AirtableAPI.isConfigured()) {
                     await AirtableAPI.deleteClient(clientId);
                 } else {
                     AppState.data.clients = AppState.data.clients.filter(c => c.id !== clientId);
                 }
-                this.showToast('Client deleted!', 'success');
+                
+                // Log activity
+                if (AuthManager) {
+                    AuthManager.logActivity('delete', `Deleted client: ${client.name}`);
+                }
+                
+                this.showToast('✅ Client deleted!', 'success');
                 await loadCompanyData(AppState.selectedCompany);
                 render();
                 document.querySelector('.modal-overlay')?.remove();
             } catch (error) {
-                this.showToast('Failed to delete', 'error');
+                this.showToast('❌ Failed to delete', 'error');
             }
-        });
-    },
+        }
+    );
+},
 
     // LEAD OPERATIONS
+    if (!canShowForm('leads', 'create')) return;  // or 'tasks', 'users'
     showAddLeadForm() {
         const users = AppState.data.users.filter(u => u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany));
         
@@ -736,7 +1003,11 @@ const CRUDManager = {
         const modal = this.createModal('Add New Lead', content, footer);
         document.body.appendChild(modal);
     },
-
+const validation = validateCRUDPermission('leads', 'create');
+if (!validation.allowed) {
+    showPermissionError('Create lead', validation.reason);
+    return;
+}
     async submitAddLead() {
         const form = document.getElementById('addLeadForm');
         if (!this.validateForm(form)) return;
@@ -810,17 +1081,25 @@ const CRUDManager = {
                 </div>
             </form>
         `;
+const canDelete = can(AppState.currentUser.role, 'leads', 'delete');
 
         const footer = `
-            <button class="btn btn-danger" onclick="CRUDManager.deleteLead('${leadId}')">Delete</button>
-            <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
-            <button class="btn btn-primary" onclick="CRUDManager.submitEditLead('${leadId}')">Update</button>
-        `;
+    ${canDelete ? `
+        <button class="btn btn-danger" onclick="CRUDManager.deleteLead('${leadId}')">Delete</button>
+    ` : ''}
+    <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
+    <button class="btn btn-primary" onclick="CRUDManager.submitEditLead('${leadId}')">Update</button>
+`;
+
 
         const modal = this.createModal('Edit Lead', content, footer);
         document.body.appendChild(modal);
     },
-
+const validation = validateCRUDPermission('leads', 'update', lead);
+if (!validation.allowed) {
+    showPermissionError('Update lead', validation.reason);
+    return;
+}
     async submitEditLead(leadId) {
         const form = document.getElementById('editLeadForm');
         if (!this.validateForm(form)) return;
@@ -841,7 +1120,11 @@ const CRUDManager = {
             this.showToast('Failed to update', 'error');
         }
     },
-
+const validation = validateCRUDPermission('leads', 'delete', lead);
+if (!validation.allowed) {
+    showPermissionError('Delete lead', validation.reason);
+    return;
+}
     deleteLead(leadId) {
         this.showConfirmDialog('Delete Lead', 'Are you sure?', async () => {
             try {
@@ -861,6 +1144,7 @@ const CRUDManager = {
     },
 
     // TASK OPERATIONS
+    if (!canShowForm('leads', 'create')) return;  // or 'tasks', 'users'
     showAddTaskForm() {
         const users = AppState.data.users.filter(u => u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany));
         
@@ -909,7 +1193,11 @@ const CRUDManager = {
         const modal = this.createModal('Add New Task', content, footer);
         document.body.appendChild(modal);
     },
-
+const validation = validateCRUDPermission('leads', 'create');
+if (!validation.allowed) {
+    showPermissionError('Create lead', validation.reason);
+    return;
+}
     async submitAddTask() {
         const form = document.getElementById('addTaskForm');
         if (!this.validateForm(form)) return;
@@ -971,9 +1259,12 @@ const CRUDManager = {
                 </div>
             </form>
         `;
+const canDelete = can(AppState.currentUser.role, 'tasks', 'delete');
 
         const footer = `
-            <button class="btn btn-danger" onclick="CRUDManager.deleteTask('${taskId}')">Delete</button>
+            ${canDelete ? `
+                <button class="btn btn-danger" onclick="CRUDManager.deleteTask('${taskId}')">Delete</button>
+            ` : ''}
             <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
             <button class="btn btn-primary" onclick="CRUDManager.submitEditTask('${taskId}')">Update</button>
         `;
@@ -981,7 +1272,11 @@ const CRUDManager = {
         const modal = this.createModal('Edit Task', content, footer);
         document.body.appendChild(modal);
     },
-
+const validation = validateCRUDPermission('leads', 'update', lead);
+if (!validation.allowed) {
+    showPermissionError('Update lead', validation.reason);
+    return;
+}
     async submitEditTask(taskId) {
         const form = document.getElementById('editTaskForm');
         if (!this.validateForm(form)) return;
@@ -1002,7 +1297,11 @@ const CRUDManager = {
             this.showToast('Failed to update', 'error');
         }
     },
-
+const validation = validateCRUDPermission('leads', 'delete', lead);
+if (!validation.allowed) {
+    showPermissionError('Delete lead', validation.reason);
+    return;
+}
     deleteTask(taskId) {
         this.showConfirmDialog('Delete Task', 'Are you sure?', async () => {
             try {
