@@ -79,7 +79,74 @@ const STATUS_ICONS = {
         'Churned': '💔'
     }
 };
+// ========================================
+// PERMISSION HELPERS FOR UI
+// ========================================
 
+/**
+ * Check if action button should be shown
+ * @param {string} resource - 'companies', 'users', 'clients', 'leads', 'tasks'
+ * @param {string} action - 'create', 'update', 'delete'
+ * @returns {boolean}
+ */
+function canShowAction(resource, action) {
+    if (typeof AuthManager === 'undefined' || !AuthManager.currentUser) {
+        return false;
+    }
+    return AuthManager.hasDetailedPermission(resource, action);
+}
+
+/**
+ * Render action button only if user has permission
+ * @param {string} resource 
+ * @param {string} action 
+ * @param {string} buttonHTML - The button HTML to show
+ * @returns {string} Button HTML or empty string
+ */
+function renderActionButton(resource, action, buttonHTML) {
+    if (canShowAction(resource, action)) {
+        return buttonHTML;
+    }
+    return ''; // Hide button
+}
+
+/**
+ * Render role badge for current user
+ * @returns {string} HTML badge
+ */
+function renderRoleBadge() {
+    if (!AuthManager || !AuthManager.currentUser) return '';
+    
+    const role = AuthManager.currentUser.role;
+    const badges = {
+        'Admin': '👑 Admin',
+        'Manager': '📊 Manager',
+        'Sales': '💼 Sales',
+        'User': '👤 User'
+    };
+    
+    const colors = {
+        'Admin': 'bg-red-500 bg-opacity-30 border-red-400',
+        'Manager': 'bg-blue-500 bg-opacity-30 border-blue-400',
+        'Sales': 'bg-green-500 bg-opacity-30 border-green-400',
+        'User': 'bg-gray-500 bg-opacity-30 border-gray-400'
+    };
+    
+    return `<span class="status-badge ${colors[role]}" style="font-size: 12px;">
+                ${badges[role] || role}
+            </span>`;
+}
+
+/**
+ * Filter data based on user permissions
+ * @param {string} resource 
+ * @param {array} data 
+ * @returns {array} Filtered data
+ */
+function getFilteredData(resource, data) {
+    if (!AuthManager || !AuthManager.currentUser) return [];
+    return AuthManager.getPermittedData(resource, data);
+}
 function renderStatusBadge(entityType, status, options = {}) {
     if (!status) return '';
     
@@ -272,102 +339,127 @@ function generateDemoData() {
 // ========================================
 const Views = {
     companySelection: () => {
-        if (AppState.loading) {
-            return `
-                <div class="min-h-screen flex items-center justify-center">
-                    <div class="glass-card p-12 text-center fade-in">
-                        <div class="text-white text-2xl">Loading...</div>
-                    </div>
-                </div>
-            `;
-        }
-
+    if (AppState.loading) {
         return `
-            <div class="min-h-screen flex items-center justify-center p-6">
-                <div class="glass-card p-12 max-w-4xl w-full fade-in">
-                    <div class="flex items-center justify-between mb-8">
+            <div class="min-h-screen flex items-center justify-center">
+                <div class="glass-card p-12 text-center fade-in">
+                    <div class="text-white text-2xl">Loading...</div>
+                </div>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="min-h-screen flex items-center justify-center p-6">
+            <div class="glass-card p-12 max-w-4xl w-full fade-in">
+                <div class="flex items-center justify-between mb-8">
+                    <div>
                         <h1 class="text-4xl font-bold text-white fade-in">
                             Select Your Company
                         </h1>
-                        ${AuthManager.getUserDisplay()}
+                        ${renderRoleBadge()}
                     </div>
-                    
+                    ${AuthManager.getUserDisplay()}
+                </div>
+                
+                <!-- Show Add Company button ONLY if user has permission -->
+                ${renderActionButton('companies', 'create', `
                     <div class="text-center mb-8">
                         <button class="btn btn-primary" onclick="if(typeof CRUDManager !== 'undefined') CRUDManager.showAddCompanyForm()">
                             ➕ Add Company
                         </button>
                     </div>
+                `)}
 
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        ${AppState.data.companies.map((company, index) => `
-    <div class="company-card p-6 text-center fade-in relative group" 
-         style="animation-delay: ${index * 0.1}s">
-        <!-- Edit and Delete Buttons -->
-        <div class="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button class="btn btn-secondary btn-sm p-2 text-xs" 
-                    onclick="event.stopPropagation(); CRUDManager.showEditCompanyForm('${company.id}')"
-                    title="Edit Company">
-                ✏️
-            </button>
-            <button class="btn btn-danger btn-sm p-2 text-xs" 
-                    onclick="event.stopPropagation(); CRUDManager.deleteCompany('${company.id}')"
-                    title="Delete Company">
-                🗑️
-            </button>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    ${AppState.data.companies.map((company, index) => `
+                        <div class="company-card p-6 text-center fade-in relative group" 
+                             style="animation-delay: ${index * 0.1}s">
+                            <!-- Edit and Delete Buttons - ONLY for admins -->
+                            ${canShowAction('companies', 'update') || canShowAction('companies', 'delete') ? `
+                                <div class="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    ${renderActionButton('companies', 'update', `
+                                        <button class="btn btn-secondary btn-sm p-2 text-xs" 
+                                                onclick="event.stopPropagation(); CRUDManager.showEditCompanyForm('${company.id}')"
+                                                title="Edit Company">
+                                            ✏️
+                                        </button>
+                                    `)}
+                                    ${renderActionButton('companies', 'delete', `
+                                        <button class="btn btn-danger btn-sm p-2 text-xs" 
+                                                onclick="event.stopPropagation(); CRUDManager.deleteCompany('${company.id}')"
+                                                title="Delete Company">
+                                            🗑️
+                                        </button>
+                                    `)}
+                                </div>
+                            ` : ''}
+                            
+                            <!-- Company Card Content (clickable to select) -->
+                            <div onclick="selectCompany('${company.id}')">
+                                ${company.photo ? 
+                                    `<div class="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden bg-white bg-opacity-10">
+                                        <img src="${company.photo}" alt="${company.name}" class="w-full h-full object-cover">
+                                    </div>` : 
+                                    '<div class="text-5xl mb-4">🏢</div>'
+                                }
+                                <h3 class="text-white text-xl font-bold">${company.name}</h3>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
         </div>
-        
-        <!-- Company Card Content (clickable to select) -->
-        <div onclick="selectCompany('${company.id}')">
-            ${company.photo ? 
-                `<div class="w-24 h-24 mx-auto mb-4 rounded-full overflow-hidden bg-white bg-opacity-10">
-                    <img src="${company.photo}" alt="${company.name}" class="w-full h-full object-cover">
-                </div>` : 
-                '<div class="text-5xl mb-4">🏢</div>'
-            }
-            <h3 class="text-white text-xl font-bold">${company.name}</h3>
-        </div>
-    </div>
-`).join('')}
+    `;
+},
+    dashboard: () => {
+    const company = AppState.data.companies.find(c => c.id === AppState.selectedCompany);
+    if (!company) return '<div class="text-white">Company not found</div>';
+    
+    // Filter data based on permissions
+    const users = AppState.data.users.filter(u => 
+        u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
+    );
+    const clients = getFilteredData('clients', AppState.data.clients.filter(c => c.company === AppState.selectedCompany));
+    const leads = getFilteredData('leads', AppState.data.leads.filter(l => l.company === AppState.selectedCompany));
+    const todos = getFilteredData('tasks', AppState.data.generalTodos.filter(t => t.company === AppState.selectedCompany));
+
+    return `
+        ${renderSidebar(company, 'dashboard')}
+        ${renderTopbar(company, 'Dashboard')}
+
+        <div class="main-content">
+            <!-- Role Badge Display -->
+            <div class="mb-4">
+                ${renderRoleBadge()}
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="stat-card fade-in" onclick="navigateTo('clients', { selectedCompany: AppState.selectedCompany })">
+                    <div class="text-white text-3xl mb-2">💼</div>
+                    <div class="text-white text-4xl font-bold">${clients.length}</div>
+                    <div class="text-white text-sm opacity-75">
+                        ${AuthManager.hasDetailedPermission('clients', 'viewAll') ? 'Total' : 'My'} Clients
+                    </div>
+                </div>
+                <div class="stat-card fade-in" onclick="navigateTo('leads', { selectedCompany: AppState.selectedCompany })">
+                    <div class="text-white text-3xl mb-2">🎯</div>
+                    <div class="text-white text-4xl font-bold">${leads.length}</div>
+                    <div class="text-white text-sm opacity-75">
+                        ${AuthManager.hasDetailedPermission('leads', 'viewAll') ? 'Total' : 'My'} Leads
+                    </div>
+                </div>
+                <div class="stat-card fade-in" onclick="navigateTo('tasks', { selectedCompany: AppState.selectedCompany })">
+                    <div class="text-white text-3xl mb-2">✅</div>
+                    <div class="text-white text-4xl font-bold">${todos.length}</div>
+                    <div class="text-white text-sm opacity-75">
+                        ${AuthManager.hasDetailedPermission('tasks', 'viewAll') ? 'Total' : 'My'} Tasks
                     </div>
                 </div>
             </div>
-        `;
-    },
 
-    dashboard: () => {
-        const company = AppState.data.companies.find(c => c.id === AppState.selectedCompany);
-        if (!company) return '<div class="text-white">Company not found</div>';
-        
-        const users = AppState.data.users.filter(u => 
-            u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
-        );
-        const clients = AppState.data.clients.filter(c => c.company === AppState.selectedCompany);
-        const leads = AppState.data.leads.filter(l => l.company === AppState.selectedCompany);
-        const todos = AppState.data.generalTodos.filter(t => t.company === AppState.selectedCompany);
-
-        return `
-            ${renderSidebar(company, 'dashboard')}
-            ${renderTopbar(company, 'Dashboard')}
-
-            <div class="main-content">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div class="stat-card fade-in" onclick="navigateTo('clients', { selectedCompany: AppState.selectedCompany })">
-                        <div class="text-white text-3xl mb-2">💼</div>
-                        <div class="text-white text-4xl font-bold">${clients.length}</div>
-                        <div class="text-white text-sm opacity-75">Total Clients</div>
-                    </div>
-                    <div class="stat-card fade-in" onclick="navigateTo('leads', { selectedCompany: AppState.selectedCompany })">
-                        <div class="text-white text-3xl mb-2">🎯</div>
-                        <div class="text-white text-4xl font-bold">${leads.length}</div>
-                        <div class="text-white text-sm opacity-75">Total Leads</div>
-                    </div>
-                    <div class="stat-card fade-in" onclick="navigateTo('tasks', { selectedCompany: AppState.selectedCompany })">
-                        <div class="text-white text-3xl mb-2">✅</div>
-                        <div class="text-white text-4xl font-bold">${todos.length}</div>
-                        <div class="text-white text-sm opacity-75">Total Tasks</div>
-                    </div>
-                </div>
-
+            <!-- Only show charts if user has analytics permission -->
+            ${AuthManager.hasDetailedPermission('system', 'viewAnalytics') ? `
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div class="glass-card p-6 fade-in">
                         <canvas id="clientsChart"></canvas>
@@ -379,196 +471,259 @@ const Views = {
                         <canvas id="tasksChart"></canvas>
                     </div>
                 </div>
+            ` : `
+                <div class="glass-card p-6 mb-8 text-center fade-in">
+                    <div class="text-white text-3xl mb-2">📊</div>
+                    <div class="text-white opacity-75">
+                        Analytics available for Managers and Admins
+                    </div>
+                </div>
+            `}
 
+            <!-- Team Members Section - Only for users who can manage users -->
+            ${AuthManager.hasDetailedPermission('users', 'read') ? `
                 <div class="glass-card p-6 fade-in">
                     <div class="flex items-center justify-between mb-6">
                         <h3 class="text-white text-2xl font-bold">Team Members</h3>
-                        <button class="btn btn-primary" onclick="if(typeof CRUDManager !== 'undefined') CRUDManager.showAddUserForm()">
-                            ➕ Add Member
-                        </button>
+                        ${renderActionButton('users', 'create', `
+                            <button class="btn btn-primary" onclick="if(typeof CRUDManager !== 'undefined') CRUDManager.showAddUserForm()">
+                                ➕ Add Member
+                            </button>
+                        `)}
                     </div>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         ${users.map(user => `
-                            <div class="glass-card p-4 cursor-pointer hover:scale-105 transition-transform"
-                                 onclick="if(typeof CRUDManager !== 'undefined') CRUDManager.showEditUserForm('${user.id}')">
+                            <div class="glass-card p-4 ${canShowAction('users', 'update') ? 'cursor-pointer hover:scale-105' : ''} transition-transform"
+                                 ${canShowAction('users', 'update') ? `onclick="if(typeof CRUDManager !== 'undefined') CRUDManager.showEditUserForm('${user.id}')"` : ''}>
                                 <div class="text-3xl mb-2">👤</div>
                                 <div class="text-white font-bold">${user.name}</div>
                                 <div class="text-white text-sm opacity-75">${user.email}</div>
                                 <div class="text-white text-xs opacity-60 mt-1">${user.role}</div>
+                                ${!canShowAction('users', 'update') ? '<div class="text-white text-xs opacity-50 mt-1">View Only</div>' : ''}
                             </div>
                         `).join('')}
                     </div>
                 </div>
-            </div>
-        `;
-    },
+            ` : ''}
+        </div>
+    `;
+},
 
     clients: () => {
-        const company = AppState.data.companies.find(c => c.id === AppState.selectedCompany);
-        if (!company) return '<div class="text-white">Company not found</div>';
-        
-        const clients = AppState.data.clients.filter(c => c.company === AppState.selectedCompany);
-        const users = AppState.data.users.filter(u => 
-            u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
-        );
+    const company = AppState.data.companies.find(c => c.id === AppState.selectedCompany);
+    if (!company) return '<div class="text-white">Company not found</div>';
+    
+    // Filter clients based on user permissions
+    const allClients = AppState.data.clients.filter(c => c.company === AppState.selectedCompany);
+    const clients = getFilteredData('clients', allClients);
+    
+    const users = AppState.data.users.filter(u => 
+        u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
+    );
 
-        return `
-            ${renderSidebar(company, 'clients')}
-            ${renderTopbar(company, 'Clients')}
+    return `
+        ${renderSidebar(company, 'clients')}
+        ${renderTopbar(company, 'Clients')}
 
-            <div class="main-content">
-                <div class="glass-card p-6 fade-in">
-                    <div class="flex items-center justify-between mb-6">
-                        <h2 class="text-white text-2xl font-bold">All Clients (${clients.length})</h2>
+        <div class="main-content">
+            <div class="glass-card p-6 fade-in">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-white text-2xl font-bold">
+                            ${AuthManager.hasDetailedPermission('clients', 'viewAll') ? 'All' : 'My'} Clients (${clients.length})
+                        </h2>
+                        ${!AuthManager.hasDetailedPermission('clients', 'viewAll') && allClients.length > clients.length ? `
+                            <p class="text-white text-sm opacity-75 mt-1">
+                                Showing ${clients.length} of ${allClients.length} total clients (assigned to you)
+                            </p>
+                        ` : ''}
+                    </div>
+                    ${renderActionButton('clients', 'create', `
                         <button class="btn btn-primary" onclick="if(typeof CRUDManager !== 'undefined') CRUDManager.showAddClientForm()">
                             ➕ Add Client
                         </button>
-                    </div>
-
-                    ${clients.length === 0 ? `
-                        <div class="text-center text-white opacity-75 py-12">
-                            <div class="text-6xl mb-4">💼</div>
-                            <h3 class="text-xl font-bold mb-2">No Clients Yet</h3>
-                            <p>Click "Add Client" to get started</p>
-                        </div>
-                    ` : `
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            ${clients.map((client, index) => {
-                                const assignedUser = users.find(u => u.id === client.assignedUser);
-                                return `
-                                    <div class="glass-card p-4 fade-in cursor-pointer hover:scale-105 transition-transform"
-                                         style="animation-delay: ${index * 0.05}s"
-                                         onclick="if(typeof CRUDManager !== 'undefined') CRUDManager.showEditClientForm('${client.id}')">
-                                        <div class="flex items-start justify-between mb-2">
-                                            <h3 class="text-white font-bold text-lg">${client.name}</h3>
-                                            ${client.rating ? `<div class="text-yellow-400">${'⭐'.repeat(client.rating)}</div>` : ''}
-                                        </div>
-                                        <p class="text-white text-sm opacity-75 mb-1">${client.email || 'No email'}</p>
-                                        <p class="text-white text-sm opacity-75 mb-2">${client.phone || 'No phone'}</p>
-                                        <div class="mb-2">
-                                            ${renderStatusBadge('client', client.status, { showIcon: true })}
-                                            ${client.priority ? `<span class="status-badge ml-2">${client.priority}</span>` : ''}
-                                        </div>
-                                        ${client.dealValue ? `<p class="text-white text-sm mb-1">💰 $${client.dealValue.toLocaleString()}</p>` : ''}
-                                        ${assignedUser ? `<p class="text-white text-sm opacity-75">👤 ${assignedUser.name}</p>` : ''}
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    `}
+                    `)}
                 </div>
+
+                ${clients.length === 0 ? `
+                    <div class="text-center text-white opacity-75 py-12">
+                        <div class="text-6xl mb-4">💼</div>
+                        <h3 class="text-xl font-bold mb-2">No Clients ${AuthManager.hasDetailedPermission('clients', 'viewAll') ? 'Yet' : 'Assigned to You'}</h3>
+                        <p>${canShowAction('clients', 'create') ? 'Click "Add Client" to get started' : 'Contact your manager to get clients assigned'}</p>
+                    </div>
+                ` : `
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        ${clients.map((client, index) => {
+                            const assignedUser = users.find(u => u.id === client.assignedUser);
+                            const canEdit = AuthManager.canEditRecord('clients', client);
+                            
+                            return `
+                                <div class="glass-card p-4 fade-in ${canEdit ? 'cursor-pointer hover:scale-105' : 'opacity-75'} transition-transform"
+                                     style="animation-delay: ${index * 0.05}s"
+                                     ${canEdit ? `onclick="if(typeof CRUDManager !== 'undefined') CRUDManager.showEditClientForm('${client.id}')"` : ''}>
+                                    <div class="flex items-start justify-between mb-2">
+                                        <h3 class="text-white font-bold text-lg">${client.name}</h3>
+                                        ${client.rating ? `<div class="text-yellow-400">${'⭐'.repeat(client.rating)}</div>` : ''}
+                                    </div>
+                                    <p class="text-white text-sm opacity-75 mb-1">${client.email || 'No email'}</p>
+                                    <p class="text-white text-sm opacity-75 mb-2">${client.phone || 'No phone'}</p>
+                                    <div class="mb-2">
+                                        ${renderStatusBadge('client', client.status, { showIcon: true })}
+                                        ${client.priority ? `<span class="status-badge ml-2">${client.priority}</span>` : ''}
+                                    </div>
+                                    ${client.dealValue ? `<p class="text-white text-sm mb-1">💰 $${client.dealValue.toLocaleString()}</p>` : ''}
+                                    ${assignedUser ? `<p class="text-white text-sm opacity-75">👤 ${assignedUser.name}</p>` : ''}
+                                    ${!canEdit ? '<div class="text-white text-xs opacity-50 mt-2">🔒 View Only</div>' : ''}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `}
             </div>
-        `;
-    },
+        </div>
+    `;
+},
 
     leads: () => {
-        const company = AppState.data.companies.find(c => c.id === AppState.selectedCompany);
-        if (!company) return '<div class="text-white">Company not found</div>';
-        
-        const leads = AppState.data.leads.filter(l => l.company === AppState.selectedCompany);
-        const users = AppState.data.users.filter(u => 
-            u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
-        );
+    const company = AppState.data.companies.find(c => c.id === AppState.selectedCompany);
+    if (!company) return '<div class="text-white">Company not found</div>';
+    
+    // Filter leads based on user permissions
+    const allLeads = AppState.data.leads.filter(l => l.company === AppState.selectedCompany);
+    const leads = getFilteredData('leads', allLeads);
+    
+    const users = AppState.data.users.filter(u => 
+        u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
+    );
 
-        return `
-            ${renderSidebar(company, 'leads')}
-            ${renderTopbar(company, 'Leads')}
+    return `
+        ${renderSidebar(company, 'leads')}
+        ${renderTopbar(company, 'Leads')}
 
-            <div class="main-content">
-                <div class="glass-card p-6 fade-in">
-                    <div class="flex items-center justify-between mb-6">
-                        <h2 class="text-white text-2xl font-bold">All Leads (${leads.length})</h2>
+        <div class="main-content">
+            <div class="glass-card p-6 fade-in">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-white text-2xl font-bold">
+                            ${AuthManager.hasDetailedPermission('leads', 'viewAll') ? 'All' : 'My'} Leads (${leads.length})
+                        </h2>
+                        ${!AuthManager.hasDetailedPermission('leads', 'viewAll') && allLeads.length > leads.length ? `
+                            <p class="text-white text-sm opacity-75 mt-1">
+                                Showing ${leads.length} of ${allLeads.length} total leads
+                            </p>
+                        ` : ''}
+                    </div>
+                    ${renderActionButton('leads', 'create', `
                         <button class="btn btn-primary" onclick="if(typeof CRUDManager !== 'undefined') CRUDManager.showAddLeadForm()">
                             ➕ Add Lead
                         </button>
-                    </div>
-
-                    ${leads.length === 0 ? `
-                        <div class="text-center text-white opacity-75 py-12">
-                            <div class="text-6xl mb-4">🎯</div>
-                            <h3 class="text-xl font-bold mb-2">No Leads Yet</h3>
-                            <p>Click "Add Lead" to get started</p>
-                        </div>
-                    ` : `
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            ${leads.map((lead, index) => {
-                                const assignedUser = users.find(u => u.id === lead.assignedUser);
-                                return `
-                                    <div class="glass-card p-4 fade-in cursor-pointer hover:scale-105 transition-transform"
-                                         style="animation-delay: ${index * 0.05}s"
-                                         onclick="if(typeof CRUDManager !== 'undefined') CRUDManager.showEditLeadForm('${lead.id}')">
-                                        <h3 class="text-white font-bold text-lg mb-2">${lead.name}</h3>
-                                        ${lead.description ? `<p class="text-white text-sm opacity-75 mb-2">${lead.description.substring(0, 50)}${lead.description.length > 50 ? '...' : ''}</p>` : ''}
-                                        <div class="mb-2">
-                                            ${renderStatusBadge('lead', lead.status, { showIcon: true })}
-                                            ${lead.priority ? `<span class="status-badge ml-2">${lead.priority}</span>` : ''}
-                                        </div>
-                                        ${lead.source ? `<p class="text-white text-sm opacity-75 mb-1">📍 Source: ${lead.source}</p>` : ''}
-                                        ${lead.dueDate ? `<p class="text-white text-sm opacity-75 mb-1">📅 Due: ${new Date(lead.dueDate).toLocaleDateString()}</p>` : ''}
-                                        ${assignedUser ? `<p class="text-white text-sm opacity-75">👤 ${assignedUser.name}</p>` : ''}
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    `}
+                    `)}
                 </div>
+
+                ${leads.length === 0 ? `
+                    <div class="text-center text-white opacity-75 py-12">
+                        <div class="text-6xl mb-4">🎯</div>
+                        <h3 class="text-xl font-bold mb-2">No Leads ${AuthManager.hasDetailedPermission('leads', 'viewAll') ? 'Yet' : 'Assigned to You'}</h3>
+                        <p>${canShowAction('leads', 'create') ? 'Click "Add Lead" to get started' : 'Contact your manager to get leads assigned'}</p>
+                    </div>
+                ` : `
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        ${leads.map((lead, index) => {
+                            const assignedUser = users.find(u => u.id === lead.assignedUser);
+                            const canEdit = AuthManager.canEditRecord('leads', lead);
+                            
+                            return `
+                                <div class="glass-card p-4 fade-in ${canEdit ? 'cursor-pointer hover:scale-105' : 'opacity-75'} transition-transform"
+                                     style="animation-delay: ${index * 0.05}s"
+                                     ${canEdit ? `onclick="if(typeof CRUDManager !== 'undefined') CRUDManager.showEditLeadForm('${lead.id}')"` : ''}>
+                                    <h3 class="text-white font-bold text-lg mb-2">${lead.name}</h3>
+                                    ${lead.description ? `<p class="text-white text-sm opacity-75 mb-2">${lead.description.substring(0, 50)}${lead.description.length > 50 ? '...' : ''}</p>` : ''}
+                                    <div class="mb-2">
+                                        ${renderStatusBadge('lead', lead.status, { showIcon: true })}
+                                        ${lead.priority ? `<span class="status-badge ml-2">${lead.priority}</span>` : ''}
+                                    </div>
+                                    ${lead.source ? `<p class="text-white text-sm opacity-75 mb-1">📍 Source: ${lead.source}</p>` : ''}
+                                    ${lead.dueDate ? `<p class="text-white text-sm opacity-75 mb-1">📅 Due: ${new Date(lead.dueDate).toLocaleDateString()}</p>` : ''}
+                                    ${assignedUser ? `<p class="text-white text-sm opacity-75">👤 ${assignedUser.name}</p>` : ''}
+                                    ${!canEdit ? '<div class="text-white text-xs opacity-50 mt-2">🔒 View Only</div>' : ''}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `}
             </div>
-        `;
-    },
-
+        </div>
+    `;
+},
     tasks: () => {
-        const company = AppState.data.companies.find(c => c.id === AppState.selectedCompany);
-        if (!company) return '<div class="text-white">Company not found</div>';
-        
-        const todos = AppState.data.generalTodos.filter(t => t.company === AppState.selectedCompany);
-        const users = AppState.data.users.filter(u => 
-            u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
-        );
+    const company = AppState.data.companies.find(c => c.id === AppState.selectedCompany);
+    if (!company) return '<div class="text-white">Company not found</div>';
+    
+    // Filter tasks based on user permissions
+    const allTodos = AppState.data.generalTodos.filter(t => t.company === AppState.selectedCompany);
+    const todos = getFilteredData('tasks', allTodos);
+    
+    const users = AppState.data.users.filter(u => 
+        u.companies && (Array.isArray(u.companies) ? u.companies.includes(AppState.selectedCompany) : u.companies === AppState.selectedCompany)
+    );
 
-        return `
-            ${renderSidebar(company, 'tasks')}
-            ${renderTopbar(company, 'Tasks')}
+    return `
+        ${renderSidebar(company, 'tasks')}
+        ${renderTopbar(company, 'Tasks')}
 
-            <div class="main-content">
-                <div class="glass-card p-6 fade-in">
-                    <div class="flex items-center justify-between mb-6">
-                        <h2 class="text-white text-2xl font-bold">All Tasks (${todos.length})</h2>
+        <div class="main-content">
+            <div class="glass-card p-6 fade-in">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h2 class="text-white text-2xl font-bold">
+                            ${AuthManager.hasDetailedPermission('tasks', 'viewAll') ? 'All' : 'My'} Tasks (${todos.length})
+                        </h2>
+                        ${!AuthManager.hasDetailedPermission('tasks', 'viewAll') && allTodos.length > todos.length ? `
+                            <p class="text-white text-sm opacity-75 mt-1">
+                                Showing ${todos.length} of ${allTodos.length} total tasks
+                            </p>
+                        ` : ''}
+                    </div>
+                    ${renderActionButton('tasks', 'create', `
                         <button class="btn btn-primary" onclick="if(typeof CRUDManager !== 'undefined') CRUDManager.showAddTaskForm()">
                             ➕ Add Task
                         </button>
-                    </div>
-
-                    ${todos.length === 0 ? `
-                        <div class="text-center text-white opacity-75 py-12">
-                            <div class="text-6xl mb-4">✅</div>
-                            <h3 class="text-xl font-bold mb-2">No Tasks Yet</h3>
-                            <p>Click "Add Task" to get started</p>
-                        </div>
-                    ` : `
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            ${todos.map((task, index) => {
-                                const assignedUser = users.find(u => u.id === task.assignedUser);
-                                return `
-                                    <div class="glass-card p-4 fade-in cursor-pointer hover:scale-105 transition-transform"
-                                         style="animation-delay: ${index * 0.05}s"
-                                         onclick="if(typeof CRUDManager !== 'undefined') CRUDManager.showEditTaskForm('${task.id}')">
-                                        <h3 class="text-white font-bold text-lg mb-2">${task.name}</h3>
-                                        <div class="flex gap-2 mb-2">
-                                            <span class="status-badge ${task.priority === 'High' ? 'badge-high' : task.priority === 'Medium' ? 'badge-medium' : 'badge-low'}">${task.priority}</span>
-                                            <span class="status-badge">${task.status}</span>
-                                        </div>
-                                        ${task.dueDate ? `<p class="text-white text-sm opacity-75 mb-1">📅 Due: ${new Date(task.dueDate).toLocaleDateString()}</p>` : ''}
-                                        ${assignedUser ? `<p class="text-white text-sm opacity-75">👤 ${assignedUser.name}</p>` : ''}
-                                    </div>
-                                `;
-                            }).join('')}
-                        </div>
-                    `}
+                    `)}
                 </div>
-            </div>
-        `;
-    },
 
+                ${todos.length === 0 ? `
+                    <div class="text-center text-white opacity-75 py-12">
+                        <div class="text-6xl mb-4">✅</div>
+                        <h3 class="text-xl font-bold mb-2">No Tasks ${AuthManager.hasDetailedPermission('tasks', 'viewAll') ? 'Yet' : 'Assigned to You'}</h3>
+                        <p>${canShowAction('tasks', 'create') ? 'Click "Add Task" to get started' : 'Your task list is empty!'}</p>
+                    </div>
+                ` : `
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        ${todos.map((task, index) => {
+                            const assignedUser = users.find(u => u.id === task.assignedUser);
+                            const canEdit = AuthManager.canEditRecord('tasks', task);
+                            
+                            return `
+                                <div class="glass-card p-4 fade-in ${canEdit ? 'cursor-pointer hover:scale-105' : 'opacity-75'} transition-transform"
+                                     style="animation-delay: ${index * 0.05}s"
+                                     ${canEdit ? `onclick="if(typeof CRUDManager !== 'undefined') CRUDManager.showEditTaskForm('${task.id}')"` : ''}>
+                                    <h3 class="text-white font-bold text-lg mb-2">${task.name}</h3>
+                                    <div class="flex gap-2 mb-2">
+                                        <span class="status-badge ${task.priority === 'High' ? 'badge-high' : task.priority === 'Medium' ? 'badge-medium' : 'badge-low'}">${task.priority}</span>
+                                        <span class="status-badge">${task.status}</span>
+                                    </div>
+                                    ${task.dueDate ? `<p class="text-white text-sm opacity-75 mb-1">📅 Due: ${new Date(task.dueDate).toLocaleDateString()}</p>` : ''}
+                                    ${assignedUser ? `<p class="text-white text-sm opacity-75">👤 ${assignedUser.name}</p>` : ''}
+                                    ${!canEdit ? '<div class="text-white text-xs opacity-50 mt-2">🔒 View Only</div>' : ''}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `}
+            </div>
+        </div>
+    `;
+},
     calendar: () => {
         const company = AppState.data.companies.find(c => c.id === AppState.selectedCompany);
         if (!company) return '<div class="text-white">Company not found</div>';
