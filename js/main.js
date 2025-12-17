@@ -505,6 +505,10 @@ const Views = {
                     </div>
                 </div>
             ` : ''}
+            <!-- Recent Activity Feed -->
+<div id="dashboardActivityFeed">
+    <div class="text-white text-center py-8">Loading activity feed...</div>
+</div>
         </div>
     `;
 },
@@ -740,6 +744,20 @@ const Views = {
         `;
     }
 };
+activities: () => {
+    const company = AppState.data.companies.find(c => c.id === AppState.selectedCompany);
+    if (!company) return '<div class="text-white">Company not found</div>';
+
+    return `
+        ${renderSidebar(company, 'activities')}
+        ${renderTopbar(company, 'Activities')}
+
+        <div class="main-content" id="activitiesView">
+            <!-- Loading placeholder -->
+            <div class="text-white text-center py-12">Loading activities...</div>
+        </div>
+    `;
+},
 
 // ========================================
 // HELPER FUNCTIONS
@@ -776,6 +794,10 @@ function renderSidebar(company, activeView) {
                      onclick="navigateTo('companySelection', { selectedCompany: null })">
                     🏢 Switch Company
                 </div>
+                <div class="sidebar-item ${activeView === 'activities' ? 'active' : ''}" 
+     onclick="navigateTo('activities', { selectedCompany: AppState.selectedCompany })">
+    📋 Activities
+</div>
             </nav>
         </div>
     `;
@@ -829,6 +851,7 @@ function render() {
     if (viewFn) {
         app.innerHTML = viewFn();
         
+        // Load charts for dashboard
         if (AppState.currentView === 'dashboard') {
             setTimeout(() => {
                 if (typeof updateCharts === 'function') {
@@ -836,8 +859,29 @@ function render() {
                 }
             }, 100);
         }
-    } else {
-        console.error('View not found:', AppState.currentView);
+        // In render() function, update dashboard section:
+if (AppState.currentView === 'dashboard') {
+    setTimeout(async () => {
+        if (typeof updateCharts === 'function') {
+            updateCharts();
+        }
+        
+        // Load activity feed - ADD THIS
+        const feedContainer = document.getElementById('dashboardActivityFeed');
+        if (feedContainer && typeof ActivityFeed !== 'undefined') {
+            feedContainer.innerHTML = await ActivityFeed.renderWidget(5);
+        }
+    }, 100);
+}
+        // Load activities for activities view - ADD THIS
+        if (AppState.currentView === 'activities') {
+            setTimeout(async () => {
+                const container = document.getElementById('activitiesView');
+                if (container) {
+                    container.innerHTML = await ActivityTimeline.render();
+                }
+            }, 100);
+        }
     }
 }
 

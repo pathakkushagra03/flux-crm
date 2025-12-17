@@ -779,6 +779,7 @@ async submitAddClient() {
     } catch (error) {
         this.showToast('❌ Failed to create client', 'error');
     }
+    await ActivityTypes.clientCreated(data.name);
 },
 
 showEditClientForm(clientId) {
@@ -897,6 +898,12 @@ async submitEditClient(clientId) {
     } catch (error) {
         this.showToast('❌ Failed to update', 'error');
     }
+    // If status changed
+if (oldStatus !== data.status) {
+    await ActivityTypes.clientStatusChanged(data.name, oldStatus, data.status);
+} else {
+    await ActivityTypes.clientUpdated(data.name, 'General updates');
+}
 },
 const validation = validateCRUDPermission('leads', 'delete', lead);
 if (!validation.allowed) {
@@ -939,6 +946,7 @@ deleteClient(clientId) {
             }
         }
     );
+    await ActivityTypes.clientDeleted(client.name);
 },
 
     // LEAD OPERATIONS
@@ -1027,6 +1035,8 @@ if (!validation.allowed) {
         } catch (error) {
             this.showToast('Failed to create lead', 'error');
         }
+        await ActivityTypes.leadCreated(data.name);
+
     },
 
     showEditLeadForm(leadId) {
@@ -1119,6 +1129,9 @@ if (!validation.allowed) {
         } catch (error) {
             this.showToast('Failed to update', 'error');
         }
+        if (oldStatus !== data.status) {
+    await ActivityTypes.leadStatusChanged(data.name, oldStatus, data.status);
+}
     },
 const validation = validateCRUDPermission('leads', 'delete', lead);
 if (!validation.allowed) {
@@ -1141,6 +1154,8 @@ if (!validation.allowed) {
                 this.showToast('Failed to delete', 'error');
             }
         });
+        await ActivityTypes.leadDeleted(lead.name);
+
     },
 
     // TASK OPERATIONS
@@ -1217,6 +1232,8 @@ if (!validation.allowed) {
         } catch (error) {
             this.showToast('Failed to create task', 'error');
         }
+        await ActivityTypes.taskCreated(data.name);
+
     },
 
     showEditTaskForm(taskId) {
@@ -1281,6 +1298,9 @@ if (!validation.allowed) {
         const form = document.getElementById('editTaskForm');
         if (!this.validateForm(form)) return;
         const data = this.getFormData(form);
+        const oldTask = AppState.data.generalTodos.find(t => t.id === taskId);
+   const oldStatus = oldTask?.status;
+   const oldAssignedUser = oldTask?.assignedUser;  // ⭐ This captures the OLD user
 
         try {
             if (AirtableAPI.isConfigured()) {
@@ -1296,6 +1316,9 @@ if (!validation.allowed) {
         } catch (error) {
             this.showToast('Failed to update', 'error');
         }
+        if (data.status === 'Completed' && oldStatus !== 'Completed') {
+    await ActivityTypes.taskCompleted(data.name);
+}
     },
 const validation = validateCRUDPermission('leads', 'delete', lead);
 if (!validation.allowed) {
@@ -1310,6 +1333,13 @@ if (!validation.allowed) {
                 } else {
                     AppState.data.generalTodos = AppState.data.generalTodos.filter(t => t.id !== taskId);
                 }
+                // Check if assigned user changed
+   if (data.assignedUser && data.assignedUser !== oldAssignedUser) {
+       const user = AppState.data.users.find(u => u.id === data.assignedUser);
+       if (user) {
+           await ActivityTypes.taskAssigned(data.name, user.name);
+       }
+   }
                 this.showToast('Task deleted!', 'success');
                 await loadCompanyData(AppState.selectedCompany);
                 render();

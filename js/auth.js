@@ -276,6 +276,7 @@ const AuthManager = {
         const originalText = loginButton.textContent;
         
         loginButton.textContent = '⏳ Signing in...';
+await ActivityTypes.userLogin(user.name);
 
         try {
             let user = null;
@@ -447,6 +448,8 @@ const AuthManager = {
             }
         }
 
+// In logout() before clearing session
+await ActivityTypes.userLogout(this.currentUser.name);
         const sessionStored = sessionStorage.getItem('crm_user');
         if (sessionStored) {
             try {
