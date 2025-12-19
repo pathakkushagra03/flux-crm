@@ -447,7 +447,6 @@ const AuthManager = {
             }
         }
 
-// In logout() before clearing session
         const sessionStored = sessionStorage.getItem('crm_user');
         if (sessionStored) {
             try {
@@ -477,8 +476,6 @@ const AuthManager = {
 
         return permissions[role]?.includes(action) || false;
     },
-    // ========================================
-
 
     getUserDisplay() {
         if (!this.currentUser) return '';

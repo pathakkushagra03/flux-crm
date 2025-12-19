@@ -7,21 +7,19 @@
 // ========================================
 // CONFIGURATION
 // ========================================
-const AIRTABLE_CONFIG = {
-    // PASTE YOUR CREDENTIALS HERE
 const AIRTABLE_CONFIG = window.AIRTABLE_CONFIG;
 
-    
-    // Table names - EXACT match with Airtable
-    TABLES: {
-        COMPANIES: 'Companies',
-        USERS: 'Users',
-        CLIENTS: 'All Clients',
-        LEADS: 'Leads',
-        GENERAL_TODO: 'General To-Do List',
-        CLIENT_TODO: 'Client To-Do List'
-    }
+// Table names - EXACT match with Airtable
+const TABLES = {
+    COMPANIES: 'Companies',
+    USERS: 'Users',
+    CLIENTS: 'All Clients',
+    LEADS: 'Leads',
+    GENERAL_TODO: 'General To-Do List',
+    CLIENT_TODO: 'Client To-Do List'
 };
+
+AIRTABLE_CONFIG.TABLES = TABLES;
 
 // ========================================
 // CORE API HELPER
@@ -376,8 +374,6 @@ const AirtableAPI = {
         }
 
         try {
-            console.log('Creating client with data:', data);
-            
             const fields = {
                 Name: data.name,
                 Email: data.email || '',
@@ -393,7 +389,6 @@ const AirtableAPI = {
                 Rating: parseInt(data.rating) || 0
             };
             
-            // Only add date fields if they have values
             if (data.lastContactDate) {
                 fields['Last Contact Date'] = data.lastContactDate;
             }
@@ -406,8 +401,6 @@ const AirtableAPI = {
             if (data.probabilityToClose !== undefined) {
                 fields['Probability to Close'] = parseFloat(data.probabilityToClose) || 0;
             }
-            
-            console.log('Airtable fields to create:', fields);
             
             const url = `https://api.airtable.com/v0/${AIRTABLE_CONFIG.BASE_ID}/${AIRTABLE_CONFIG.TABLES.CLIENTS}`;
             
@@ -422,23 +415,10 @@ const AirtableAPI = {
             
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('Airtable error response:', errorText);
-                
-                let errorMessage = `HTTP ${response.status}`;
-                try {
-                    const errorJson = JSON.parse(errorText);
-                    if (errorJson.error && errorJson.error.message) {
-                        errorMessage = errorJson.error.message;
-                    }
-                } catch (e) {
-                    errorMessage = errorText.substring(0, 100);
-                }
-                
-                throw new Error(`Failed to create client: ${errorMessage}`);
+                throw new Error(`Failed to create client: ${errorText}`);
             }
             
             const record = await response.json();
-            console.log('Client created successfully:', record);
             
             return {
                 id: record.id,
@@ -467,15 +447,9 @@ const AirtableAPI = {
         }
 
         try {
-            console.log('Updating client:', id, 'with data:', data);
-            
-            // Build fields object - only include fields that have values
             const fields = {};
             
-            // Required field
             if (data.name) fields.Name = data.name;
-            
-            // Optional fields - only add if they exist
             if (data.email !== undefined && data.email !== null) {
                 fields.Email = data.email;
             }
@@ -498,7 +472,6 @@ const AirtableAPI = {
                 fields.Notes = data.notes;
             }
             
-            // Linked records - handle carefully
             if (data.assignedUser !== undefined) {
                 fields.AssignedUser = data.assignedUser ? [data.assignedUser] : [];
             }
@@ -506,7 +479,6 @@ const AirtableAPI = {
                 fields.Company = data.company ? [data.company] : [];
             }
             
-            // Numeric fields
             if (data.dealValue !== undefined && data.dealValue !== null) {
                 fields['Deal Value'] = parseFloat(data.dealValue) || 0;
             }
@@ -514,7 +486,6 @@ const AirtableAPI = {
                 fields.Rating = parseInt(data.rating) || 0;
             }
             
-            // Date fields - only add if present
             if (data.lastContactDate !== undefined && data.lastContactDate !== null && data.lastContactDate !== '') {
                 fields['Last Contact Date'] = data.lastContactDate;
             }
@@ -527,8 +498,6 @@ const AirtableAPI = {
             if (data.probabilityToClose !== undefined && data.probabilityToClose !== null) {
                 fields['Probability to Close'] = parseFloat(data.probabilityToClose) || 0;
             }
-            
-            console.log('Airtable fields to update:', fields);
             
             const url = `https://api.airtable.com/v0/${AIRTABLE_CONFIG.BASE_ID}/${AIRTABLE_CONFIG.TABLES.CLIENTS}/${id}`;
             
@@ -543,26 +512,10 @@ const AirtableAPI = {
             
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('Airtable error response:', errorText);
-                
-                // Try to parse error message
-                let errorMessage = `HTTP ${response.status}`;
-                try {
-                    const errorJson = JSON.parse(errorText);
-                    if (errorJson.error && errorJson.error.message) {
-                        errorMessage = errorJson.error.message;
-                    } else if (errorJson.error && errorJson.error.type) {
-                        errorMessage = errorJson.error.type;
-                    }
-                } catch (e) {
-                    errorMessage = errorText.substring(0, 100);
-                }
-                
-                throw new Error(`Failed to update client: ${errorMessage}`);
+                throw new Error(`Failed to update client: ${errorText}`);
             }
             
             const responseData = await response.json();
-            console.log('Airtable update success:', responseData);
             
             return {
                 id: responseData.id,
