@@ -2,6 +2,11 @@ function sanitizeInput(str) {
   return str.replace(/[<>&"'`]/g, "");
 }
 
+function shouldSkipSanitization(fieldName) {
+  // Don't sanitize base64 photo data
+  return fieldName === 'photo' || fieldName.includes('Photo');
+}
+
 // ========================================
 // CRUD OPERATIONS & MODAL MANAGEMENT
 // ========================================
@@ -214,13 +219,18 @@ const CRUDManager = {
     },
 
     getFormData(formElement) {
-        const formData = new FormData(formElement);
-        const data = {};
-        for (let [key, value] of formData.entries()) {
+    const formData = new FormData(formElement);
+    const data = {};
+    for (let [key, value] of formData.entries()) {
+        // Skip sanitization for photo fields (they contain base64 data)
+        if (shouldSkipSanitization(key)) {
+            data[key] = value;
+        } else {
             data[key] = sanitizeInput(value);
         }
-        return data;
-    },
+    }
+    return data;
+}
 
     handlePhotoUpload(previewId, dataId, inputElement) {
         const file = inputElement.files[0];
@@ -318,25 +328,30 @@ const CRUDManager = {
         document.body.appendChild(modal);
     },
 
-    async submitAddCompany() {
-        const validation = validateCRUDPermission('companies', 'create');
-        if (!validation.allowed) {
-            showPermissionError('Create company', validation.reason);
-            return;
-        }
+async submitAddCompany() {
+    const validation = validateCRUDPermission('companies', 'create');
+    if (!validation.allowed) {
+        showPermissionError('Create company', validation.reason);
+        return;
+    }
+    
+    const form = document.getElementById('addCompanyForm');
+    if (!this.validateForm(form)) return;
+
+    const data = this.getFormData(form);
+
+    try {
+        let newCompany = null;
         
-        const form = document.getElementById('addCompanyForm');
-        if (!this.validateForm(form)) return;
-
-        const data = this.getFormData(form);
-
-        try {
-            let newCompany = null;
-            
-            if (AirtableAPI.isConfigured()) {
+        // Try Airtable if configured
+        if (AirtableAPI.isConfigured()) {
+            try {
                 newCompany = await AirtableAPI.addCompany(data);
                 this.showToast('✅ Company created successfully!', 'success');
-            } else {
+            } catch (airtableError) {
+                console.warn('⚠️ Airtable failed, falling back to demo mode:', airtableError);
+                
+                // Fall back to demo mode
                 const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7B731'];
                 newCompany = {
                     id: 'demo-' + Date.now().toString(),
@@ -344,24 +359,35 @@ const CRUDManager = {
                     photo: data.photo || '',
                     color: colors[Math.floor(Math.random() * colors.length)]
                 };
-                this.showToast('✅ Company created (Demo)', 'success');
+                
+                this.showToast('⚠️ Company created in demo mode (Airtable unavailable)', 'success');
             }
-            
-            AppState.data.companies.push(newCompany);
-            
-            if (AuthManager) {
-                AuthManager.logActivity('create', `Created company: ${data.name}`);
-            }
-            
-            document.querySelector('.modal-overlay').remove();
-            render();
-            
-        } catch (error) {
-            console.error('Error creating company:', error);
-            this.showToast('❌ Failed to create company', 'error');
+        } else {
+            // Pure demo mode
+            const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7B731'];
+            newCompany = {
+                id: 'demo-' + Date.now().toString(),
+                name: data.name,
+                photo: data.photo || '',
+                color: colors[Math.floor(Math.random() * colors.length)]
+            };
+            this.showToast('✅ Company created (Demo Mode)', 'success');
         }
-    },
-
+        
+        AppState.data.companies.push(newCompany);
+        
+        if (AuthManager) {
+            AuthManager.logActivity('create', `Created company: ${data.name}`);
+        }
+        
+        document.querySelector('.modal-overlay').remove();
+        render();
+        
+    } catch (error) {
+        console.error('Error creating company:', error);
+        this.showToast('❌ Failed to create company', 'error');
+    }
+}
     showEditCompanyForm(companyId) {
         const company = AppState.data.companies.find(c => c.id === companyId);
         if (!company) return this.showToast('❌ Company not found', 'error');
