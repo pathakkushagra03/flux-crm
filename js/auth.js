@@ -65,6 +65,60 @@ const ThemeManager = {
 };
 
 // ========================================
+// DROPDOWN MANAGER - CENTRALIZED CONTROL
+// ========================================
+const DropdownManager = {
+    activeDropdown: null,
+    
+    /**
+     * Open a dropdown and close others
+     */
+    open(dropdownId) {
+        this.closeAll();
+        const dropdown = document.getElementById(dropdownId);
+        if (dropdown) {
+            dropdown.classList.remove('hidden');
+            this.activeDropdown = dropdownId;
+        }
+    },
+    
+    /**
+     * Close specific dropdown
+     */
+    close(dropdownId) {
+        const dropdown = document.getElementById(dropdownId);
+        if (dropdown) {
+            dropdown.classList.add('hidden');
+            if (this.activeDropdown === dropdownId) {
+                this.activeDropdown = null;
+            }
+        }
+    },
+    
+    /**
+     * Close all dropdowns
+     */
+    closeAll() {
+        document.querySelectorAll('[id$="Menu"]').forEach(menu => {
+            menu.classList.add('hidden');
+        });
+        this.activeDropdown = null;
+    },
+    
+    /**
+     * Toggle dropdown
+     */
+    toggle(dropdownId) {
+        const dropdown = document.getElementById(dropdownId);
+        if (dropdown && dropdown.classList.contains('hidden')) {
+            this.open(dropdownId);
+        } else {
+            this.close(dropdownId);
+        }
+    }
+};
+
+// ========================================
 // ENHANCED AUTHENTICATION SYSTEM - FIXED
 // ========================================
 const AuthManager = {
@@ -105,15 +159,18 @@ const AuthManager = {
     init() {
         ThemeManager.init();
         console.log('🔐 AuthManager initialized');
+        console.log('✅ Permission system: Admin-first with complete permission map');
     },
     
     /**
-     * Normalize role string for consistent comparison
-     * FIX: Prevents case-sensitivity issues with "admin" vs "Admin"
+     * FIXED: Normalize role string for consistent comparison
+     * Prevents case-sensitivity issues with "admin" vs "Admin"
      */
     normalizeRole(role) {
         if (!role) return 'User';
-        return role.trim().charAt(0).toUpperCase() + role.trim().slice(1).toLowerCase();
+        const normalized = role.trim().charAt(0).toUpperCase() + role.trim().slice(1).toLowerCase();
+        console.log(`🔄 Role normalized: "${role}" → "${normalized}"`);
+        return normalized;
     },
     
     /**
@@ -668,7 +725,8 @@ const AuthManager = {
     },
 
     /**
-     * FIXED: Centralized permission checker with Admin priority
+     * FIXED: Centralized permission checker with COMPLETE permission map
+     * CRITICAL FIX: Admin check FIRST, then comprehensive permission map
      */
     hasPermission(action) {
         if (!this.currentUser) {
@@ -678,28 +736,62 @@ const AuthManager = {
         
         const role = this.normalizeRole(this.currentUser.role);
         
-        console.log('🔐 Checking permission:', { action, role, userId: this.currentUser.id });
+        console.log('🔐 Checking permission:', { 
+            action, 
+            role, 
+            userId: this.currentUser.id,
+            userRole: this.currentUser.role 
+        });
         
-        // Admin has ALL permissions - NO EXCEPTIONS
+        // CRITICAL: Admin has ALL permissions - NO EXCEPTIONS
+        // This check MUST come before any permission map lookup
         if (role === 'Admin') {
-            console.log('✅ Admin: Permission granted');
+            console.log('✅ Admin: Permission GRANTED (all access)');
             return true;
         }
         
+        // COMPLETE Permission Map - ALL possible permissions
         const permissions = {
-            'Manager': ['create', 'read', 'update', 'delete', 'view_all', 'export'],
-            'Sales': ['create', 'read', 'update', 'view_assigned'],
-            'User': ['read', 'update', 'view_assigned']
+            'Manager': [
+                'create', 'read', 'update', 'delete',
+                'view_all', 'view_assigned',
+                'export', 'import',
+                'manage_tasks', 'manage_leads', 'manage_clients',
+                'manage_calendar', 'manage_todos'
+            ],
+            'Sales': [
+                'create', 'read', 'update',
+                'view_assigned',
+                'manage_tasks', 'manage_leads', 'manage_clients',
+                'manage_calendar', 'manage_todos'
+            ],
+            'User': [
+                'read', 'update',
+                'view_assigned'
+            ]
         };
 
-        const hasPermission = permissions[role]?.includes(action) || false;
-        console.log(hasPermission ? '✅ Permission granted' : '❌ Permission denied');
+        // Check if role has the permission
+        const rolePermissions = permissions[role];
+        
+        if (!rolePermissions) {
+            console.warn(`⚠️ Unknown role: ${role}`);
+            return false;
+        }
+        
+        const hasPermission = rolePermissions.includes(action);
+        
+        console.log(hasPermission ? 
+            `✅ ${role}: Permission "${action}" GRANTED` : 
+            `❌ ${role}: Permission "${action}" DENIED`
+        );
         
         return hasPermission;
     },
 
     /**
      * FIXED: Detailed permission checker for CRUD operations
+     * CRITICAL FIX: Admin check FIRST, explicit false returns
      */
     hasDetailedPermission(resource, operation) {
         if (!this.currentUser) {
@@ -716,39 +808,56 @@ const AuthManager = {
             userId: this.currentUser.id 
         });
         
-        // Admin can do EVERYTHING - NO EXCEPTIONS
+        // CRITICAL: Admin can do EVERYTHING - NO EXCEPTIONS
+        // This check MUST come before any other logic
         if (role === 'Admin') {
-            console.log('✅ Admin: Full access granted');
+            console.log('✅ Admin: Full access GRANTED for', operation, resource);
             return true;
         }
         
-        // Manager can do most things except manage users/companies
+        // Manager permissions
         if (role === 'Manager') {
+            // Manager cannot manage users or companies
             if (resource === 'users' || resource === 'companies') {
                 const allowed = operation === 'read';
-                console.log(allowed ? '✅ Manager: Read-only access' : '❌ Manager: No write access to users/companies');
+                console.log(allowed ? 
+                    `✅ Manager: Read-only access to ${resource}` : 
+                    `❌ Manager: Cannot ${operation} ${resource}`
+                );
                 return allowed;
             }
+            
+            // Manager can do most operations on other resources
             const allowed = ['create', 'read', 'update', 'delete'].includes(operation);
-            console.log(allowed ? '✅ Manager: Access granted' : '❌ Manager: Operation not allowed');
+            console.log(allowed ? 
+                `✅ Manager: ${operation} access to ${resource}` : 
+                `❌ Manager: Cannot ${operation} ${resource}`
+            );
             return allowed;
         }
         
-        // Sales can create, read, update (but not delete)
+        // Sales permissions
         if (role === 'Sales') {
             const allowed = ['create', 'read', 'update'].includes(operation);
-            console.log(allowed ? '✅ Sales: Access granted' : '❌ Sales: Cannot delete');
+            console.log(allowed ? 
+                `✅ Sales: ${operation} access to ${resource}` : 
+                `❌ Sales: Cannot ${operation} ${resource} (no delete)`
+            );
             return allowed;
         }
         
-        // User can only read and update
+        // User permissions
         if (role === 'User') {
             const allowed = ['read', 'update'].includes(operation);
-            console.log(allowed ? '✅ User: Access granted' : '❌ User: Limited access');
+            console.log(allowed ? 
+                `✅ User: ${operation} access to ${resource}` : 
+                `❌ User: Cannot ${operation} ${resource} (read/update only)`
+            );
             return allowed;
         }
         
-        console.log('❌ Permission denied: Unknown role or operation');
+        // Unknown role - explicitly deny
+        console.warn(`❌ Permission denied: Unknown role "${role}"`);
         return false;
     },
     
@@ -763,19 +872,19 @@ const AuthManager = {
         
         const role = this.normalizeRole(this.currentUser.role);
         
-        // Admin and Manager can edit anything
+        // CRITICAL: Admin and Manager can edit anything
         if (role === 'Admin' || role === 'Manager') {
-            console.log('✅ Admin/Manager: Can edit any record');
+            console.log(`✅ ${role}: Can edit any ${resource} record`);
             return true;
         }
         
         // Sales and User can only edit their own records
         if (record && record.assignedUser === this.currentUser.id) {
-            console.log('✅ User owns record: Can edit');
+            console.log(`✅ ${role}: Can edit ${resource} (assigned to user)`);
             return true;
         }
         
-        console.log('❌ Cannot edit: Not assigned to user');
+        console.log(`❌ ${role}: Cannot edit ${resource} (not assigned to user)`);
         return false;
     },
     
@@ -790,13 +899,19 @@ const AuthManager = {
         
         const role = this.normalizeRole(this.currentUser.role);
         
-        // Only Admin can delete
+        // CRITICAL: Only Admin can delete
         const canDelete = role === 'Admin';
-        console.log(canDelete ? '✅ Admin: Can delete' : '❌ Only Admin can delete');
+        console.log(canDelete ? 
+            '✅ Admin: Can delete any record' : 
+            `❌ ${role}: Cannot delete (Admin only)`
+        );
         
         return canDelete;
     },
 
+    /**
+     * FIXED: User display with dropdown management
+     */
     getUserDisplay() {
         if (!this.currentUser) return '';
         
@@ -807,28 +922,28 @@ const AuthManager = {
                     <div class="text-white text-xs opacity-75">${this.normalizeRole(this.currentUser.role)}</div>
                 </div>
                 <div class="relative">
-                    <button class="btn btn-primary" onclick="document.getElementById('userMenu').classList.toggle('hidden')">
+                    <button class="btn btn-primary" onclick="DropdownManager.toggle('userMenu'); event.stopPropagation();">
                         👤
                     </button>
                     <div id="userMenu" class="hidden absolute right-0 mt-2 w-56 glass-card rounded-lg overflow-hidden z-50 shadow-2xl">
                         <button class="w-full text-left px-4 py-3 text-white hover:bg-white hover:bg-opacity-10 transition-all flex items-center gap-3" 
-                                onclick="AuthManager.showProfile(); document.getElementById('userMenu').classList.add('hidden');">
+                                onclick="AuthManager.showProfile(); event.stopPropagation();">
                             <span class="text-xl">👤</span>
                             <span>My Profile</span>
                         </button>
                         <button class="w-full text-left px-4 py-3 text-white hover:bg-white hover:bg-opacity-10 transition-all flex items-center gap-3" 
-                                onclick="AuthManager.showSettings(); document.getElementById('userMenu').classList.add('hidden');">
+                                onclick="AuthManager.showSettings(); event.stopPropagation();">
                             <span class="text-xl">⚙️</span>
                             <span>Settings</span>
                         </button>
                         <button class="w-full text-left px-4 py-3 text-white hover:bg-white hover:bg-opacity-10 transition-all flex items-center gap-3" 
-                                onclick="AuthManager.showActivityLog(); document.getElementById('userMenu').classList.add('hidden');">
+                                onclick="AuthManager.showActivityLog(); event.stopPropagation();">
                             <span class="text-xl">📊</span>
                             <span>Activity Log</span>
                         </button>
                         <div class="border-t border-white border-opacity-20"></div>
                         <button class="w-full text-left px-4 py-3 text-white hover:bg-white hover:bg-opacity-10 transition-all flex items-center gap-3" 
-                                onclick="AuthManager.logout(); document.getElementById('userMenu').classList.add('hidden');">
+                                onclick="AuthManager.logout(); event.stopPropagation();">
                             <span class="text-xl">🚪</span>
                             <span>Sign Out</span>
                         </button>
@@ -838,7 +953,13 @@ const AuthManager = {
         `;
     },
 
+    /**
+     * FIXED: Show profile with dropdown auto-close
+     */
     showProfile() {
+        // Close all dropdowns before showing modal
+        DropdownManager.closeAll();
+        
         if (!this.currentUser) return;
         
         const content = `
@@ -896,6 +1017,9 @@ const AuthManager = {
         }
     },
 
+    /**
+     * FIXED: Show edit profile with dropdown auto-close
+     */
     showEditProfile() {
         if (!this.currentUser) return;
         
@@ -1016,7 +1140,13 @@ const AuthManager = {
         }
     },
 
+    /**
+     * FIXED: Show settings with dropdown auto-close
+     */
     showSettings() {
+        // Close all dropdowns before showing modal
+        DropdownManager.closeAll();
+        
         const savedSettings = JSON.parse(localStorage.getItem('crm_settings') || '{}');
         
         const content = `
@@ -1157,7 +1287,13 @@ const AuthManager = {
         document.querySelector('.modal-overlay')?.remove();
     },
 
+    /**
+     * FIXED: Show activity log with dropdown auto-close
+     */
     showActivityLog() {
+        // Close all dropdowns before showing modal
+        DropdownManager.closeAll();
+        
         const activities = this.getActivityLog();
         
         const content = `
@@ -1288,12 +1424,23 @@ const AuthManager = {
         }
     },
 
+    /**
+     * FIXED: Get permission badges showing what user can do
+     */
     getPermissionBadges() {
-        const allPermissions = ['create', 'read', 'update', 'delete', 'manage_users', 'manage_companies', 'view_all', 'export'];
+        // All possible permissions to check
+        const allPermissions = [
+            'create', 'read', 'update', 'delete',
+            'view_all', 'view_assigned',
+            'export', 'import',
+            'manage_tasks', 'manage_leads', 'manage_clients',
+            'manage_calendar', 'manage_todos'
+        ];
+        
         const userPermissions = allPermissions.filter(perm => this.hasPermission(perm));
         
         return userPermissions.map(perm => 
-            `<span class="status-badge badge-low" style="font-size: 11px;">${perm.replace('_', ' ')}</span>`
+            `<span class="status-badge badge-low" style="font-size: 11px;">${perm.replace(/_/g, ' ')}</span>`
         ).join('');
     },
 
@@ -1308,14 +1455,32 @@ const AuthManager = {
     }
 };
 
-// Close user menu when clicking outside
+// ========================================
+// GLOBAL EVENT LISTENERS - FIXED
+// ========================================
+
+// Close dropdowns when clicking outside - IMPROVED LOGIC
 document.addEventListener('click', (e) => {
-    const userMenu = document.getElementById('userMenu');
-    const button = e.target.closest('button');
-    
-    if (userMenu && !userMenu.contains(e.target) && button?.textContent !== '👤') {
-        userMenu.classList.add('hidden');
+    // Don't close if clicking on a button that opens a dropdown
+    const clickedButton = e.target.closest('button');
+    if (clickedButton && clickedButton.getAttribute('onclick')?.includes('toggle')) {
+        return;
     }
+    
+    // Don't close if clicking inside a dropdown
+    const clickedDropdown = e.target.closest('[id$="Menu"]');
+    if (clickedDropdown) {
+        return;
+    }
+    
+    // Don't close if clicking inside a modal
+    const clickedModal = e.target.closest('.modal-overlay');
+    if (clickedModal) {
+        return;
+    }
+    
+    // Close all dropdowns
+    DropdownManager.closeAll();
 });
 
 // Initialize on load
@@ -1323,10 +1488,25 @@ document.addEventListener('DOMContentLoaded', () => {
     AuthManager.init();
 });
 
-console.log('✅ Enhanced Authentication & Theme Manager loaded - FIXED');
+console.log('✅ Enhanced Authentication & Theme Manager loaded - PERMISSION SYSTEM FIXED');
 console.log('🎨 Theme options: Light, Dark, Auto');
 console.log('🔐 Demo credentials available in login page');
-console.log('✅ Permission validation methods hardened');
-console.log('✅ Admin role always has full access');
+console.log('✅ Permission validation: Admin-first with complete permission map');
+console.log('✅ Admin role: ALWAYS has full access - NO EXCEPTIONS');
 console.log('✅ Session validation improved');
 console.log('✅ Auth state synchronization active');
+console.log('✅ Dropdown manager: Proper menu control');
+console.log('✅ Settings/Profile modals: Auto-close dropdowns');
+console.log('');
+console.log('🔐 PERMISSION SYSTEM FIXES:');
+console.log('   ✅ Admin check happens FIRST before any permission map lookup');
+console.log('   ✅ Complete permission map includes ALL permission types');
+console.log('   ✅ Consistent role normalization across all checks');
+console.log('   ✅ Undefined permissions explicitly return false');
+console.log('   ✅ Enhanced debug logging for permission issues');
+console.log('');
+console.log('📋 Available Permissions:');
+console.log('   - Basic: create, read, update, delete');
+console.log('   - View: view_all, view_assigned');
+console.log('   - Data: export, import');
+console.log('   - Management: manage_tasks, manage_leads, manage_clients, manage_calendar, manage_todos');

@@ -1,5 +1,5 @@
 // ========================================
-// NAVIGATION & UI HELPERS
+// NAVIGATION & UI HELPERS - FIXED
 // ========================================
 
 /**
@@ -125,7 +125,7 @@ const NavigationManager = {
     },
     
     /**
-     * Render quick action buttons
+     * FIXED: Render quick action buttons with dropdown management
      */
     renderQuickActions() {
         if (typeof AuthManager === 'undefined' || !AuthManager.hasPermission('create')) {
@@ -134,24 +134,24 @@ const NavigationManager = {
         
         return `
             <div class="relative">
-                <button class="btn btn-primary" onclick="document.getElementById('quickActionsMenu').classList.toggle('hidden')">
+                <button class="btn btn-primary" onclick="DropdownManager.toggle('quickActionsMenu'); event.stopPropagation();">
                     ➕ Quick Add
                 </button>
                 <div id="quickActionsMenu" class="hidden absolute right-0 mt-2 w-48 glass-card rounded-lg overflow-hidden z-50 shadow-2xl">
                     <button class="w-full text-left px-4 py-3 text-white hover:bg-white hover:bg-opacity-10 transition-all"
-                            onclick="CRUDManager.showAddClientForm(); document.getElementById('quickActionsMenu').classList.add('hidden')">
+                            onclick="CRUDManager.showAddClientForm(); DropdownManager.close('quickActionsMenu'); event.stopPropagation();">
                         👥 Add Client
                     </button>
                     <button class="w-full text-left px-4 py-3 text-white hover:bg-white hover:bg-opacity-10 transition-all"
-                            onclick="CRUDManager.showAddLeadForm(); document.getElementById('quickActionsMenu').classList.add('hidden')">
+                            onclick="CRUDManager.showAddLeadForm(); DropdownManager.close('quickActionsMenu'); event.stopPropagation();">
                         🎯 Add Lead
                     </button>
                     <button class="w-full text-left px-4 py-3 text-white hover:bg-white hover:bg-opacity-10 transition-all"
-                            onclick="CRUDManager.showAddTaskForm('general'); document.getElementById('quickActionsMenu').classList.add('hidden')">
+                            onclick="CRUDManager.showAddTaskForm('general'); DropdownManager.close('quickActionsMenu'); event.stopPropagation();">
                         📋 Add General Task
                     </button>
                     <button class="w-full text-left px-4 py-3 text-white hover:bg-white hover:bg-opacity-10 transition-all"
-                            onclick="CRUDManager.showAddTaskForm('client'); document.getElementById('quickActionsMenu').classList.add('hidden')">
+                            onclick="CRUDManager.showAddTaskForm('client'); DropdownManager.close('quickActionsMenu'); event.stopPropagation();">
                         ✓ Add Client Task
                     </button>
                 </div>
@@ -404,14 +404,7 @@ const SearchFilterManager = {
     }
 };
 
-// Close dropdown menus when clicking outside
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.btn')) {
-        document.querySelectorAll('[id$="Menu"]').forEach(menu => {
-            menu.classList.add('hidden');
-        });
-    }
-});
-
-console.log('✅ Navigation & UI Helpers loaded');
+console.log('✅ Navigation & UI Helpers loaded - FIXED');
 console.log('🧭 Enhanced navigation with breadcrumbs and history tracking');
+console.log('✅ Dropdown management integrated');
+console.log('✅ Click event propagation properly handled');

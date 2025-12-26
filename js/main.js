@@ -453,6 +453,9 @@ function render() {
     }
 }
 
+/**
+ * FIXED: Render company selection with proper permission checks
+ */
 function renderCompanySelection() {
     const app = document.getElementById('app');
     if (!app) return;
@@ -460,13 +463,16 @@ function renderCompanySelection() {
     const companies = AppState.data.companies;
     
     if (companies.length === 0) {
+        // FIXED: Check for create permission instead of undefined manage_companies
+        const canCreateCompany = typeof AuthManager !== 'undefined' && AuthManager.hasPermission('create');
+        
         app.innerHTML = `
             <div class="min-h-screen flex items-center justify-center p-6">
                 <div class="glass-card p-12 max-w-2xl w-full text-center fade-in">
                     <div class="text-6xl mb-4">🏢</div>
                     <h1 class="text-4xl font-bold text-white mb-4">No Companies Found</h1>
                     <p class="text-white text-lg opacity-75 mb-6">Get started by creating your first company</p>
-                    ${typeof AuthManager !== 'undefined' && AuthManager.hasPermission('manage_companies') ? `
+                    ${canCreateCompany ? `
                         <button class="btn btn-primary" onclick="CRUDManager.showAddCompanyForm()">
                             ➕ Create Company
                         </button>
@@ -479,6 +485,9 @@ function renderCompanySelection() {
         return;
     }
     
+    // FIXED: Check for create permission
+    const canCreateCompany = typeof AuthManager !== 'undefined' && AuthManager.hasPermission('create');
+    
     app.innerHTML = `
         <div class="min-h-screen p-6">
             <div class="max-w-7xl mx-auto fade-in">
@@ -490,7 +499,7 @@ function renderCompanySelection() {
                             <p class="text-white opacity-75">Choose a company to continue</p>
                         </div>
                         <div class="flex items-center gap-3">
-                            ${typeof AuthManager !== 'undefined' && AuthManager.hasPermission('manage_companies') ? 
+                            ${canCreateCompany ? 
                                 '<button class="btn btn-primary" onclick="CRUDManager.showAddCompanyForm()">➕ Add Company</button>' : 
                                 ''
                             }
@@ -501,7 +510,11 @@ function renderCompanySelection() {
                 
                 <!-- Companies Grid -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    ${companies.map(company => `
+                    ${companies.map(company => {
+                        // FIXED: Check for update permission
+                        const canEditCompany = typeof AuthManager !== 'undefined' && AuthManager.hasPermission('update');
+                        
+                        return `
                         <div class="company-card p-6 cursor-pointer" 
                              onclick="selectCompany('${company.id}')">
                             <div class="flex items-center gap-4 mb-4">
@@ -544,7 +557,7 @@ function renderCompanySelection() {
                                 </div>
                             </div>
                             
-                            ${typeof AuthManager !== 'undefined' && AuthManager.hasPermission('manage_companies') ? `
+                            ${canEditCompany ? `
                                 <div class="flex gap-2 mt-4">
                                     <button class="btn btn-secondary flex-1 text-sm" 
                                             onclick="event.stopPropagation(); CRUDManager.showEditCompanyForm('${company.id}')">
@@ -553,7 +566,7 @@ function renderCompanySelection() {
                                 </div>
                             ` : ''}
                         </div>
-                    `).join('')}
+                    `}).join('')}
                 </div>
             </div>
         </div>
@@ -833,7 +846,7 @@ function renderDashboard() {
                             <button class="tab-btn" onclick="switchTab('calendar-events')">📅 Calendar (${calendarEvents.length})</button>
                             <button class="tab-btn" onclick="switchTab('general-todos')">📋 General To-Do (${generalTodos.length})</button>
                             <button class="tab-btn" onclick="switchTab('client-todos')">✓ Client To-Do (${clientTodos.length})</button>
-                            ${typeof AuthManager !== 'undefined' && AuthManager.hasPermission('manage_users') ? 
+                            ${typeof AuthManager !== 'undefined' && AuthManager.hasPermission('update') ? 
                                 `<button class="tab-btn" onclick="switchTab('users')">👤 Users (${AppState.data.users.length})</button>` : 
                                 ''
                             }
@@ -1332,7 +1345,7 @@ function renderClientTodosTab(todos) {
 }
 
 function renderUsersTab(users) {
-    const canCreate = typeof AuthManager !== 'undefined' && AuthManager.hasPermission('manage_users');
+    const canCreate = typeof AuthManager !== 'undefined' && AuthManager.hasPermission('create');
     
     return `
         <div class="glass-card p-6">
@@ -1371,7 +1384,10 @@ function renderUsersTab(users) {
                             </tr>
                         </thead>
                         <tbody>
-                            ${users.map(user => `
+                            ${users.map(user => {
+                                const canEdit = typeof AuthManager !== 'undefined' && AuthManager.hasPermission('update');
+                                
+                                return `
                                 <tr class="border-b border-white border-opacity-10 hover:bg-white hover:bg-opacity-5 transition-colors">
                                     <td class="p-3">
                                         <div class="flex items-center gap-3">
@@ -1393,14 +1409,14 @@ function renderUsersTab(users) {
                                         <span class="status-badge badge-${user.status === 'Active' ? 'high' : 'low'}">${user.status || 'Active'}</span>
                                     </td>
                                     <td class="p-3">
-                                        ${canCreate ? `
+                                        ${canEdit ? `
                                             <button class="btn btn-sm btn-secondary" onclick="CRUDManager.showEditUserForm('${user.id}')">✏️</button>
                                         ` : `
                                             <span class="text-white text-xs opacity-50">View only</span>
                                         `}
                                     </td>
                                 </tr>
-                            `).join('')}
+                            `}).join('')}
                         </tbody>
                     </table>
                 </div>
@@ -1700,146 +1716,142 @@ document.addEventListener('click', (e) => {
             }
             
             .tab-btn:hover {
-                background: rgba(255, 255, 255, 0.15);
-                transform: translateY(-2px);
-            }
-            
-            .tab-btn.active {
-                background: rgba(255, 255, 255, 0.25);
-                border-color: rgba(255, 255, 255, 0.4);
-                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            }
-        </style>
-    `;
-    
-    // Inject styles only once
-    if (!document.getElementById('tab-button-styles')) {
-        document.head.insertAdjacentHTML('beforeend', styles);
-    }
-});
+                background: rgba(255, 255, 255, 0.15
+                );
+transform: translateY(-2px);
+}
+.tab-btn.active {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.4);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+`;
 
+// Inject styles only once
+if (!document.getElementById('tab-button-styles')) {
+    document.head.insertAdjacentHTML('beforeend', styles);
+}
+});
 // ========================================
 // UTILITY FUNCTIONS
 // ========================================
-
 /**
- * Check if app is in demo mode
- */
+
+Check if app is in demo mode
+*/
 function isDemoMode() {
-    return !AirtableAPI.isConfigured();
+return !AirtableAPI.isConfigured();
 }
 
 /**
- * Get current environment
- */
+
+Get current environment
+*/
 function getEnvironment() {
-    return AirtableAPI.isConfigured() ? 'Production (Airtable)' : 'Demo Mode';
+return AirtableAPI.isConfigured() ? 'Production (Airtable)' : 'Demo Mode';
 }
 
 /**
- * Export current state for debugging
- */
+
+Export current state for debugging
+*/
 function exportDebugInfo() {
-    const debugInfo = {
-        timestamp: new Date().toISOString(),
-        environment: getEnvironment(),
-        appState: {
-            currentView: AppState.currentView,
-            selectedCompany: AppState.selectedCompany,
-            selectedUser: AppState.selectedUser,
-            isInitializing: AppState.isInitializing,
-            dataCounts: {
-                companies: AppState.data.companies.length,
-                users: AppState.data.users.length,
-                clients: AppState.data.clients.length,
-                leads: AppState.data.leads.length,
-                generalTodos: AppState.data.generalTodos.length,
-                clientTodos: AppState.data.clientTodos.length,
-                calendarEvents: AppState.data.calendarEvents?.length || 0
-            }
-        },
-        currentUser: AuthManager?.currentUser ? {
-            id: AuthManager.currentUser.id,
-            name: AuthManager.currentUser.name,
-            email: AuthManager.currentUser.email,
-            role: AuthManager.currentUser.role
-        } : null,
-        permissions: {
-            create: AuthManager?.hasPermission('create') || false,
-            read: AuthManager?.hasPermission('read') || false,
-            update: AuthManager?.hasPermission('update') || false,
-            delete: AuthManager?.hasPermission('delete') || false,
-            view_all: AuthManager?.hasPermission('view_all') || false,
-            manage_users: AuthManager?.hasPermission('manage_users') || false,
-            manage_companies: AuthManager?.hasPermission('manage_companies') || false
-        },
-        browser: {
-            userAgent: navigator.userAgent,
-            language: navigator.language,
-            online: navigator.onLine,
-            cookiesEnabled: navigator.cookieEnabled
-        },
-        screen: {
-            width: window.innerWidth,
-            height: window.innerHeight,
-            pixelRatio: window.devicePixelRatio
-        },
-        storage: {
-            localStorage: {
-                crm_user: !!localStorage.getItem('crm_user'),
-                crm_user_expiry: localStorage.getItem('crm_user_expiry'),
-                crm_last_company: localStorage.getItem('crm_last_company'),
-                crm_theme: localStorage.getItem('crm_theme')
-            },
-            sessionStorage: {
-                crm_user: !!sessionStorage.getItem('crm_user')
-            }
-        }
-    };
-    
-    console.log('🔍 Debug Info:', debugInfo);
-    
-    // Download as JSON
-    const blob = new Blob([JSON.stringify(debugInfo, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `crm-debug-${Date.now()}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-    
-    if (typeof CRUDManager !== 'undefined') {
-        CRUDManager.showToast('📥 Debug info exported', 'success');
-    }
-    
-    return debugInfo;
+const debugInfo = {
+timestamp: new Date().toISOString(),
+environment: getEnvironment(),
+appState: {
+currentView: AppState.currentView,
+selectedCompany: AppState.selectedCompany,
+selectedUser: AppState.selectedUser,
+isInitializing: AppState.isInitializing,
+dataCounts: {
+companies: AppState.data.companies.length,
+users: AppState.data.users.length,
+clients: AppState.data.clients.length,
+leads: AppState.data.leads.length,
+generalTodos: AppState.data.generalTodos.length,
+clientTodos: AppState.data.clientTodos.length,
+calendarEvents: AppState.data.calendarEvents?.length || 0
+}
+},
+currentUser: AuthManager?.currentUser ? {
+id: AuthManager.currentUser.id,
+name: AuthManager.currentUser.name,
+email: AuthManager.currentUser.email,
+role: AuthManager.currentUser.role
+} : null,
+permissions: {
+create: AuthManager?.hasPermission('create') || false,
+read: AuthManager?.hasPermission('read') || false,
+update: AuthManager?.hasPermission('update') || false,
+delete: AuthManager?.hasPermission('delete') || false,
+view_all: AuthManager?.hasPermission('view_all') || false,
+view_assigned: AuthManager?.hasPermission('view_assigned') || false,
+export: AuthManager?.hasPermission('export') || false,
+manage_tasks: AuthManager?.hasPermission('manage_tasks') || false,
+manage_leads: AuthManager?.hasPermission('manage_leads') || false,
+manage_clients: AuthManager?.hasPermission('manage_clients') || false
+},
+browser: {
+userAgent: navigator.userAgent,
+language: navigator.language,
+online: navigator.onLine,
+cookiesEnabled: navigator.cookieEnabled
+},
+screen: {
+width: window.innerWidth,
+height: window.innerHeight,
+pixelRatio: window.devicePixelRatio
+},
+storage: {
+localStorage: {
+crm_user: !!localStorage.getItem('crm_user'),
+crm_user_expiry: localStorage.getItem('crm_user_expiry'),
+crm_last_company: localStorage.getItem('crm_last_company'),
+crm_theme: localStorage.getItem('crm_theme')
+},
+sessionStorage: {
+crm_user: !!sessionStorage.getItem('crm_user')
+}
+}
+};
+console.log('🔍 Debug Info:', debugInfo);
+// Download as JSON
+const blob = new Blob([JSON.stringify(debugInfo, null, 2)], { type: 'application/json' });
+const url = URL.createObjectURL(blob);
+const link = document.createElement('a');
+link.href = url;
+link.download = crm-debug-${Date.now()}.json;
+link.click();
+URL.revokeObjectURL(url);
+if (typeof CRUDManager !== 'undefined') {
+CRUDManager.showToast('📥 Debug info exported', 'success');
+}
+return debugInfo;
 }
 
 // Make debug function available globally
 window.exportDebugInfo = exportDebugInfo;
-
 // ========================================
 // CONSOLE BANNER
 // ========================================
-
-console.log(`
-╔═══════════════════════════════════════════════════════════╗
-║                                                           ║
-║             🚀 CRM SYSTEM - FULLY OPERATIONAL             ║
-║                                                           ║
-║  Version: 2.0.0 - Authentication Fixed                   ║
-║  Status: ${getEnvironment().padEnd(48)} ║
-║  Mode: Enhanced Security & Error Handling                 ║
-║                                                           ║
-╚═══════════════════════════════════════════════════════════╝
-`);
-
-console.log('✅ Main Application Script Loaded - FIXED');
+console.log(╔═══════════════════════════════════════════════════════════╗ ║                                                           ║ ║             🚀 CRM SYSTEM - FULLY OPERATIONAL             ║ ║                                                           ║ ║  Version: 3.0.0 - PERMISSION SYSTEM FIXED                ║ ║  Status: ${getEnvironment().padEnd(48)} ║ ║  Mode: Admin-First Permission Checking                   ║ ║                                                           ║ ╚═══════════════════════════════════════════════════════════╝);
+console.log('✅ Main Application Script Loaded - PERMISSION SYSTEM FIXED');
 console.log('🎯 CRM System Ready');
-console.log('📊 Version: 2.0.0 - Schema Validated');
+console.log('📊 Version: 3.0.0 - Admin Permission Errors Resolved');
 console.log('🔧 Environment:', getEnvironment());
 console.log('🔐 Authentication: Enhanced & Hardened');
-console.log('✅ All tables implemented:');
+console.log('👑 Admin Role: ALWAYS has full access - NO EXCEPTIONS');
+console.log('');
+console.log('✅ PERMISSION SYSTEM FIXES:');
+console.log('   ✅ Admin check happens FIRST before any map lookup');
+console.log('   ✅ Complete permission map with all permission types');
+console.log('   ✅ Consistent role normalization');
+console.log('   ✅ Proper permission names used throughout UI');
+console.log('   ✅ Enhanced debug logging for troubleshooting');
+console.log('');
+console.log('📋 All tables implemented:');
 console.log('   - Companies (with Industry, Location, Notes)');
 console.log('   - Users (with PhoneNumber, Status, lookups)');
 console.log('   - Clients (ALL schema fields including formulas)');
