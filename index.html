@@ -23,27 +23,31 @@
         <!-- Application content will be rendered here by JavaScript -->
     </div>
 
+    <!-- 
+    ═══════════════════════════════════════════════════════════
+    🔒 SECURITY: Configuration Loading
+    ═══════════════════════════════════════════════════════════
+    
+    The config.js file contains your Airtable credentials.
+    It is listed in .gitignore to prevent accidental uploads.
+    
+    NEVER hardcode credentials in this HTML file!
+    ═══════════════════════════════════════════════════════════
+    -->
+    
+    <!-- Load Configuration First (CRITICAL - Must load before other scripts) -->
+    <script src="js/config.js"></script>
 
     <!-- JavaScript Files (Load in correct dependency order) -->
-<!-- JavaScript Files (Load in correct dependency order) -->
-    <script>
-        window.AIRTABLE_CONFIG = {
-            TOKEN: "pat4F9XRHlkSEpN3X.975c338c28e924f7c2b6cb5f7f870989471c42acfe6fb254907d7c6f7f80385f",
-            BASE_ID: "appTCS4jZ78mZQDHy"
-        };
-        console.log("✅ CONFIG LOADED:", window.AIRTABLE_CONFIG.BASE_ID);
-    </script>
-    
-    <!-- JavaScript Files (Load in correct dependency order) -->
-<script src="js/errorhandler.js"></script>
+    <script src="js/errorhandler.js"></script>
     <script src="js/airtable.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/crud.js"></script>
-<script src="js/charts.js"></script>
-<script src="js/calendar.js"></script>
-<script src="js/activity.js"></script>
-<script src="js/ux.js"></script>
-<script src="js/nav.js"></script>
-<script src="js/main.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/crud.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/calendar.js"></script>
+    <script src="js/activity.js"></script>
+    <script src="js/ux.js"></script>
+    <script src="js/nav.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>
