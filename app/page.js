@@ -1,19 +1,82 @@
-export default function Home() {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-black">
-      <div className="text-center">
-        <h1 className="text-6xl font-bold text-white mb-4">
-          Flux CRM
-        </h1>
-        <p className="text-gray-400 text-xl">
-          Modern Customer Relationship Management
-        </p>
-        <div className="mt-8">
-          <button className="px-8 py-3 bg-white text-black font-semibold rounded-lg hover:bg-gray-200 transition-all duration-200">
-            Get Started
-          </button>
-        </div>
+'use client'
+
+import { useEffect, useState } from 'react'
+import Card from '@/components/Card'
+import LoadingSpinner from '@/components/LoadingSpinner'
+import Link from 'next/link'
+
+export default function Dashboard() {
+  const [stats, setStats] = useState({
+    users: 0,
+    companies: 0,
+    clients: 0,
+    deals: 0,
+    tasks: 0,
+  })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchStats()
+  }, [])
+
+  const fetchStats = async () => {
+    try {
+      const [users, companies, clients, deals, tasks] = await Promise.all([
+        fetch('/api/users').then(r => r.json()),
+        fetch('/api/companies').then(r => r.json()),
+        fetch('/api/clients').then(r => r.json()),
+        fetch('/api/deals').then(r => r.json()),
+        fetch('/api/tasks').then(r => r.json()),
+      ])
+
+      setStats({
+        users: users.length || 0,
+        companies: companies.length || 0,
+        clients: clients.length || 0,
+        deals: deals.length || 0,
+        tasks: tasks.length || 0,
+      })
+    } catch (error) {
+      console.error('Error fetching stats:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const statCards = [
+    { label: 'Users', value: stats.users, href: '/users', color: 'border-blue-500' },
+    { label: 'Companies', value: stats.companies, href: '/companies', color: 'border-purple-500' },
+    { label: 'Clients', value: stats.clients, href: '/clients', color: 'border-green-500' },
+    { label: 'Deals', value: stats.deals, href: '/deals', color: 'border-yellow-500' },
+    { label: 'Tasks', value: stats.tasks, href: '/tasks', color: 'border-red-500' },
+  ]
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <LoadingSpinner size="lg" />
       </div>
-    </div>
-  )
-}
+    )
+  }
+
+  return (
+    <div className="animate-fade-in">
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-white mb-2">Dashboard</h1>
+        <p className="text-gray-400">Welcome to Flux CRM</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-12">
+        {statCards.map((stat) => (
+          <Link key={stat.label} href={stat.href}>
+            <Card hover className={`border-l-4 ${stat.color}`}>
+              <div className="text-sm text-gray-400 mb-1">{stat.label}</div>
+              <div className="text-3xl font-bold text-white">{stat.value}</div>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <h2 className="text-
