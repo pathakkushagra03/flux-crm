@@ -1,12 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  reactStrictMode: true,
   images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "dl.airtable.com" },
-      { protocol: "https", hostname: "v5.airtableusercontent.com" }
-    ],
+    domains: ['dl.airtable.com', 'v5.airtableusercontent.com'],
   },
-};
+  env: {
+    NEXT_PUBLIC_AIRTABLE_API_KEY: process.env.NEXT_PUBLIC_AIRTABLE_API_KEY,
+    NEXT_PUBLIC_AIRTABLE_BASE_ID: process.env.NEXT_PUBLIC_AIRTABLE_BASE_ID,
+  },
+}
 
-module.exports = nextConfig;
+module.exports = nextConfig
