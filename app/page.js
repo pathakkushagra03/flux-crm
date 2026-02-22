@@ -30,11 +30,11 @@ export default function Dashboard() {
       ])
 
       setStats({
-        users: users.length || 0,
-        companies: companies.length || 0,
-        clients: clients.length || 0,
-        deals: deals.length || 0,
-        tasks: tasks.length || 0,
+        users: users?.length || 0,
+        companies: companies?.length || 0,
+        clients: clients?.length || 0,
+        deals: deals?.length || 0,
+        tasks: tasks?.length || 0,
       })
     } catch (error) {
       console.error('Error fetching stats:', error)
@@ -60,12 +60,15 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in p-6">
+
+      {/* HEADER */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-white mb-2">Dashboard</h1>
         <p className="text-gray-400">Welcome to Flux CRM</p>
       </div>
 
+      {/* STAT CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-12">
         {statCards.map((stat) => (
           <Link key={stat.label} href={stat.href}>
@@ -77,6 +80,18 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {/* OVERVIEW */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <h2 className="text-
+          <h2 className="text-2xl font-semibold mb-4">
+            Dashboard Overview
+          </h2>
+          <p className="text-gray-400">
+            Manage clients, companies, deals, and tasks from one premium CRM dashboard.
+          </p>
+        </Card>
+      </div>
+
+    </div>
+  )
+}
