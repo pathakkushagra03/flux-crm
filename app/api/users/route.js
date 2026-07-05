@@ -7,7 +7,7 @@ export async function GET() {
     return NextResponse.json(users)
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to fetch users' },
+      { error: 'Failed to fetch users', details: error.message },
       { status: 500 }
     )
   }
@@ -20,7 +20,7 @@ export async function POST(request) {
     return NextResponse.json(user, { status: 201 })
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to create user' },
+      { error: 'Failed to create user', details: error.message },
       { status: 500 }
     )
   }
