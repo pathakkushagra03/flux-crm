@@ -7,7 +7,7 @@ export async function GET(request, { params }) {
     return NextResponse.json(deal)
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to fetch deal' },
+      { error: 'Failed to fetch deal', details: error.message },
       { status: 500 }
     )
   }
@@ -20,7 +20,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json(deal)
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to update deal' },
+      { error: 'Failed to update deal', details: error.message },
       { status: 500 }
     )
   }
@@ -32,7 +32,7 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to delete deal' },
+      { error: 'Failed to delete deal', details: error.message },
       { status: 500 }
     )
   }
