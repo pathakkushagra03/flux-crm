@@ -7,7 +7,7 @@ export async function GET(request, { params }) {
     return NextResponse.json(client)
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to fetch client' },
+      { error: 'Failed to fetch client', details: error.message },
       { status: 500 }
     )
   }
@@ -20,7 +20,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json(client)
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to update client' },
+      { error: 'Failed to update client', details: error.message },
       { status: 500 }
     )
   }
@@ -32,7 +32,7 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to delete client' },
+      { error: 'Failed to delete client', details: error.message },
       { status: 500 }
     )
   }
