@@ -7,7 +7,7 @@ export async function GET(request, { params }) {
     return NextResponse.json(user)
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to fetch user' },
+      { error: 'Failed to fetch user', details: error.message },
       { status: 500 }
     )
   }
@@ -20,7 +20,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json(user)
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to update user' },
+      { error: 'Failed to update user', details: error.message },
       { status: 500 }
     )
   }
@@ -32,7 +32,7 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to delete user' },
+      { error: 'Failed to delete user', details: error.message },
       { status: 500 }
     )
   }
