@@ -7,7 +7,7 @@ export async function GET(request, { params }) {
     return NextResponse.json(task)
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to fetch task' },
+      { error: 'Failed to fetch task', details: error.message },
       { status: 500 }
     )
   }
@@ -20,7 +20,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json(task)
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to update task' },
+      { error: 'Failed to update task', details: error.message },
       { status: 500 }
     )
   }
@@ -32,7 +32,7 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to delete task' },
+      { error: 'Failed to delete task', details: error.message },
       { status: 500 }
     )
   }
