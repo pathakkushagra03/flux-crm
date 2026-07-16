@@ -7,7 +7,7 @@ export async function GET() {
     return NextResponse.json(deals)
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to fetch deals' },
+      { error: 'Failed to fetch deals', details: error.message },
       { status: 500 }
     )
   }
@@ -20,7 +20,7 @@ export async function POST(request) {
     return NextResponse.json(deal, { status: 201 })
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to create deal' },
+      { error: 'Failed to create deal', details: error.message },
       { status: 500 }
     )
   }
