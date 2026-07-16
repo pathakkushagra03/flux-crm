@@ -7,7 +7,7 @@ export async function GET() {
     return NextResponse.json(tasks)
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to fetch tasks' },
+      { error: 'Failed to fetch tasks', details: error.message },
       { status: 500 }
     )
   }
@@ -20,7 +20,7 @@ export async function POST(request) {
     return NextResponse.json(task, { status: 201 })
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to create task' },
+      { error: 'Failed to create task', details: error.message },
       { status: 500 }
     )
   }
