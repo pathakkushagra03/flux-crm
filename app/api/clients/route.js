@@ -7,7 +7,7 @@ export async function GET() {
     return NextResponse.json(clients)
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to fetch clients' },
+      { error: 'Failed to fetch clients', details: error.message },
       { status: 500 }
     )
   }
@@ -20,7 +20,7 @@ export async function POST(request) {
     return NextResponse.json(client, { status: 201 })
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to create client' },
+      { error: 'Failed to create client', details: error.message },
       { status: 500 }
     )
   }
