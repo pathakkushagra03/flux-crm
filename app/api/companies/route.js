@@ -7,7 +7,7 @@ export async function GET() {
     return NextResponse.json(companies)
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to fetch companies' },
+      { error: 'Failed to fetch companies', details: error.message },
       { status: 500 }
     )
   }
@@ -20,7 +20,7 @@ export async function POST(request) {
     return NextResponse.json(company, { status: 201 })
   } catch (error) {
     return NextResponse.json(
-      { error: 'Failed to create company' },
+      { error: 'Failed to create company', details: error.message },
       { status: 500 }
     )
   }
