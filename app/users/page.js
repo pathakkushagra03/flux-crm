@@ -6,11 +6,11 @@ import Table from '@/components/Table'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
 import Select from '@/components/Select'
-import ImageUpload from '@/components/ImageUpload'
 import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function UsersPage() {
   const [users, setUsers] = useState([])
+  const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
@@ -19,22 +19,26 @@ export default function UsersPage() {
     email: '',
     phone: '',
     role: '',
-    status: 'Active',
-    profilePhoto: null,
+    companies: [],
   })
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    fetchUsers()
+    fetchData()
   }, [])
 
-  const fetchUsers = async () => {
+  const fetchData = async () => {
     try {
-      const response = await fetch('/api/users')
-      const data = await response.json()
-      setUsers(data)
+      const [usersRes, companiesRes] = await Promise.all([
+        fetch('/api/users'),
+        fetch('/api/companies'),
+      ])
+      const usersData = await usersRes.json()
+      const companiesData = await companiesRes.json()
+      setUsers(usersData)
+      setCompanies(companiesData)
     } catch (error) {
-      console.error('Error fetching users:', error)
+      console.error('Error fetching data:', error)
     } finally {
       setLoading(false)
     }
@@ -48,8 +52,7 @@ export default function UsersPage() {
         email: user.email,
         phone: user.phone,
         role: user.role,
-        status: user.status,
-        profilePhoto: user.profilePhoto,
+        companies: user.companies,
       })
     } else {
       setEditingUser(null)
@@ -58,8 +61,7 @@ export default function UsersPage() {
         email: '',
         phone: '',
         role: '',
-        status: 'Active',
-        profilePhoto: null,
+        companies: [],
       })
     }
     setIsModalOpen(true)
@@ -73,8 +75,7 @@ export default function UsersPage() {
       email: '',
       phone: '',
       role: '',
-      status: 'Active',
-      profilePhoto: null,
+      companies: [],
     })
   }
 
@@ -93,7 +94,7 @@ export default function UsersPage() {
       })
 
       if (response.ok) {
-        await fetchUsers()
+        await fetchData()
         handleCloseModal()
       }
     } catch (error) {
@@ -110,7 +111,7 @@ export default function UsersPage() {
     try {
       const response = await fetch(`/api/users/${id}`, { method: 'DELETE' })
       if (response.ok) {
-        await fetchUsers()
+        await fetchData()
       }
     } catch (error) {
       console.error('Error deleting user:', error)
@@ -119,42 +120,10 @@ export default function UsersPage() {
   }
 
   const columns = [
-    {
-      key: 'profilePhoto',
-      label: 'Photo',
-      render: (value) => (
-        <div className="w-10 h-10 rounded-full bg-gray-800 overflow-hidden">
-          {value ? (
-            <img src={value} alt="Profile" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-500">
-              <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-              </svg>
-            </div>
-          )}
-        </div>
-      ),
-    },
     { key: 'name', label: 'Name' },
     { key: 'email', label: 'Email' },
     { key: 'phone', label: 'Phone' },
     { key: 'role', label: 'Role' },
-    {
-      key: 'status',
-      label: 'Status',
-      render: (value) => (
-        <span
-          className={`px-2 py-1 text-xs rounded-full ${
-            value === 'Active'
-              ? 'bg-green-900/30 text-green-400'
-              : 'bg-red-900/30 text-red-400'
-          }`}
-        >
-          {value}
-        </span>
-      ),
-    },
     {
       key: 'actions',
       label: 'Actions',
@@ -210,13 +179,6 @@ export default function UsersPage() {
         size="md"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <ImageUpload
-            label="Profile Photo"
-            currentImage={formData.profilePhoto}
-            onImageSelect={(base64) => setFormData({ ...formData, profilePhoto: base64 })}
-            onImageRemove={() => setFormData({ ...formData, profilePhoto: null })}
-          />
-
           <Input
             label="Name"
             name="name"
@@ -253,20 +215,18 @@ export default function UsersPage() {
             required
             options={[
               { value: 'Admin', label: 'Admin' },
-              { value: 'Staff', label: 'Staff' },
+              { value: 'Manager', label: 'Manager' },
+              { value: 'User', label: 'User' },
             ]}
           />
 
           <Select
-            label="Status"
-            name="status"
-            value={formData.status}
-            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-            required
-            options={[
-              { value: 'Active', label: 'Active' },
-              { value: 'Inactive', label: 'Inactive' },
-            ]}
+            label="Company"
+            name="companies"
+            value={formData.companies[0] || ''}
+            onChange={(e) => setFormData({ ...formData, companies: e.target.value ? [e.target.value] : [] })}
+            options={companies.map(company => ({ value: company.id, label: company.companyName }))}
+            placeholder="Select company"
           />
 
           <div className="flex gap-3 pt-4">
