@@ -5,7 +5,6 @@ import Button from '@/components/Button'
 import Table from '@/components/Table'
 import Modal from '@/components/Modal'
 import Input from '@/components/Input'
-import Textarea from '@/components/Textarea'
 import ImageUpload from '@/components/ImageUpload'
 import LoadingSpinner from '@/components/LoadingSpinner'
 import Select from '@/components/Select'
@@ -18,12 +17,8 @@ export default function CompaniesPage() {
   const [editingCompany, setEditingCompany] = useState(null)
   const [formData, setFormData] = useState({
     companyName: '',
-    industry: '',
-    website: '',
-    phone: '',
-    address: '',
-    logo: null,
-    owner: [],
+    photo: null,
+    users: [],
   })
   const [saving, setSaving] = useState(false)
 
@@ -53,23 +48,15 @@ export default function CompaniesPage() {
       setEditingCompany(company)
       setFormData({
         companyName: company.companyName,
-        industry: company.industry,
-        website: company.website,
-        phone: company.phone,
-        address: company.address,
-        logo: company.logo,
-        owner: company.owner,
+        photo: company.photo,
+        users: company.users,
       })
     } else {
       setEditingCompany(null)
       setFormData({
         companyName: '',
-        industry: '',
-        website: '',
-        phone: '',
-        address: '',
-        logo: null,
-        owner: [],
+        photo: null,
+        users: [],
       })
     }
     setIsModalOpen(true)
@@ -122,7 +109,7 @@ export default function CompaniesPage() {
 
   const columns = [
     {
-      key: 'logo',
+      key: 'photo',
       label: 'Logo',
       render: (value) => (
         <div className="w-10 h-10 rounded-lg bg-gray-800 overflow-hidden">
@@ -137,9 +124,6 @@ export default function CompaniesPage() {
       ),
     },
     { key: 'companyName', label: 'Company Name' },
-    { key: 'industry', label: 'Industry' },
-    { key: 'phone', label: 'Phone' },
-    { key: 'website', label: 'Website' },
     {
       key: 'actions',
       label: 'Actions',
@@ -197,9 +181,9 @@ export default function CompaniesPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <ImageUpload
             label="Company Logo"
-            currentImage={formData.logo}
-            onImageSelect={(base64) => setFormData({ ...formData, logo: base64 })}
-            onImageRemove={() => setFormData({ ...formData, logo: null })}
+            currentImage={formData.photo}
+            onImageSelect={(base64) => setFormData({ ...formData, photo: base64 })}
+            onImageRemove={() => setFormData({ ...formData, photo: null })}
           />
 
           <Input
@@ -211,50 +195,13 @@ export default function CompaniesPage() {
             placeholder="Acme Corporation"
           />
 
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Industry"
-              name="industry"
-              value={formData.industry}
-              onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-              placeholder="Technology"
-            />
-
-            <Input
-              label="Phone"
-              name="phone"
-              type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="+1 234 567 8900"
-            />
-          </div>
-
-          <Input
-            label="Website"
-            name="website"
-            type="url"
-            value={formData.website}
-            onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-            placeholder="https://example.com"
-          />
-
-          <Textarea
-            label="Address"
-            name="address"
-            value={formData.address}
-            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-            placeholder="123 Business St, City, State 12345"
-            rows={3}
-          />
-
           <Select
-            label="Owner"
-            name="owner"
-            value={formData.owner[0] || ''}
-            onChange={(e) => setFormData({ ...formData, owner: e.target.value ? [e.target.value] : [] })}
+            label="Primary User"
+            name="users"
+            value={formData.users[0] || ''}
+            onChange={(e) => setFormData({ ...formData, users: e.target.value ? [e.target.value] : [] })}
             options={users.map(user => ({ value: user.id, label: user.name }))}
-            placeholder="Select owner"
+            placeholder="Select user"
           />
 
           <div className="flex gap-3 pt-4">
